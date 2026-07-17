@@ -1,0 +1,4 @@
+interface:
+  display_name: "Babysitting Pr"
+  short_description: "Use the Babysitting Pr workflow in this task."
+  default_prompt: "Use $babysitting-pr to help with this task."

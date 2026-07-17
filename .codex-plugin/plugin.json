@@ -1,0 +1,28 @@
+{
+  "name": "agentic-engineering",
+  "version": "0.1.0",
+  "description": "Provider-neutral engineering workflows from product specification through operations.",
+  "author": {
+    "name": "Mike Jenkins",
+    "email": "mike@mikejenkins.us",
+    "url": "https://github.com/mike-jenkins-org"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/mike-jenkins-org/agentic-engineering",
+  "keywords": ["engineering", "workflow", "skills", "tdd", "review"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agentic Engineering",
+    "shortDescription": "Run a disciplined spec-to-operations workflow.",
+    "longDescription": "A portable engineering toolbelt for specification, planning, test-first execution, verification, release, and operations.",
+    "developerName": "Mike Jenkins",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/mike-jenkins-org/agentic-engineering",
+    "defaultPrompt": [
+      "Bootstrap this repository for a new application.",
+      "Turn this product idea into an approved spec.",
+      "Plan this approved specification for execution."
+    ]
+  }
+}

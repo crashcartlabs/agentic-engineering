@@ -1,0 +1,7 @@
+interface:
+  display_name: "Spec"
+  short_description: "Use the Spec workflow in this task."
+  default_prompt: "Use $spec to help with this task."
+
+policy:
+  allow_implicit_invocation: false

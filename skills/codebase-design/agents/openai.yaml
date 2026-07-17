@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codebase Design"
+  short_description: "Use the Codebase Design workflow in this task."
+  default_prompt: "Use $codebase-design to help with this task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research"
+  short_description: "Use the Research workflow in this task."
+  default_prompt: "Use $research to help with this task."

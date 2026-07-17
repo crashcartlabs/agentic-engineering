@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tdd"
+  short_description: "Use the Tdd workflow in this task."
+  default_prompt: "Use $tdd to help with this task."

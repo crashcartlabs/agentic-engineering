@@ -1,0 +1,39 @@
+# Claude Code internal worktrees
+.claude/worktrees/
+
+# cmux fleet manifests (scripts/cmux/spawn_fleet.py) -- local bookkeeping,
+# not meant to be committed
+.cmux/
+
+# Sanitized committed-state archive used to seed the Docker sandbox.
+.sandbox/
+
+# Local-only artifacts (see docs/artifacts.md): conversation handoffs and
+# correctness-audit reports are per-machine, not tracked evidence. The tracked
+# evidence dirs (reviews/, security-reviews/, skill-scans/) are intentionally
+# NOT ignored.
+handoffs/
+code-reviews/
+
+# Local machine settings and secrets
+.claude/settings.local.json
+.env
+.env.*
+!.env.example
+
+# Dashboard runtime output (scripts/dashboard/dashboard.py); the tracked
+# config.example.json template is intentionally NOT ignored.
+scripts/dashboard/config.json
+scripts/dashboard/dashboard.html
+scripts/dashboard/dashboard.pid
+scripts/dashboard/dashboard.log
+
+# Local public-snapshot dry-run output (scripts/release/publish_public.py --dry-run)
+.public-snapshot-dryrun/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# OS metadata
+.DS_Store

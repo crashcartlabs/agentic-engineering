@@ -1,0 +1,7 @@
+interface:
+  display_name: "Cmux"
+  short_description: "Use the Cmux workflow in this task."
+  default_prompt: "Use $cmux to help with this task."
+
+policy:
+  allow_implicit_invocation: false

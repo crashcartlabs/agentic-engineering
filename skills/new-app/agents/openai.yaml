@@ -1,0 +1,4 @@
+interface:
+  display_name: "New App"
+  short_description: "Bootstrap a repo into the app workflow"
+  default_prompt: "Use $new-app to bootstrap this repository for the spec-to-operations workflow."

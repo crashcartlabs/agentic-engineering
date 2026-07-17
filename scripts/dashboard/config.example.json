@@ -1,0 +1,5 @@
+{
+  "repo_path": "/absolute/path/to/target-repo",
+  "refresh_interval_seconds": 15,
+  "output_path": null
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Diagnosing Bugs"
+  short_description: "Use the Diagnosing Bugs workflow in this task."
+  default_prompt: "Use $diagnosing-bugs to help with this task."

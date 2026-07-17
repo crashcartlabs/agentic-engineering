@@ -1,0 +1,13 @@
+# <Reference topic>
+
+Detailed reference loaded on demand — only for a skill whose detail would push the
+`SKILL.md` body past ~500 lines, or that only some runs need. Otherwise inline it and
+delete this file (an unused sidecar is just maintenance surface).
+
+Rules for a reference file:
+- ≤200 lines. Split into topic-focused files past that.
+- Over 100 lines → open with a `## Contents` table of contents.
+- Link it from `SKILL.md` by basename, or the agent never loads it (orphan).
+- Keep references one level deep — no reference that points to another reference.
+
+<!-- Replace everything above with the actual reference content. -->

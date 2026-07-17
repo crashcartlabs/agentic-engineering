@@ -1,0 +1,16 @@
+{
+  "name": "agentic-engineering",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Provider-neutral engineering workflows from product specification through operations.",
+  "keywords": ["pi-package", "agent-skills", "engineering-workflow"],
+  "pi": {
+    "skills": ["./skills"],
+    "extensions": ["./providers/pi/extensions"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "^0.80.3",
+    "@earendil-works/pi-coding-agent": "^0.80.3"
+  }
+}

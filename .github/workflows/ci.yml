@@ -1,0 +1,92 @@
+name: CI
+
+# The meta-repo's own gate. This repo prescribes rigorous gates for every other repo
+# (see /commit); this workflow makes its own rules enforceable — the checks /commit's
+# fallback would otherwise only eyeball. Addresses the "give the meta-repo its own gate"
+# item of the roadmap (issue #53).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Gate (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+      # Single source of truth: the same command a human runs locally before pushing.
+      - name: Run lints
+        run: python scripts/ci/check_all.py
+
+  secret-scan:
+    name: Secret scan (trufflehog)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TRUFFLEHOG_VERSION: v3.95.8
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+      # Download the pinned release archive and verify it against the release checksum.
+      - name: Install trufflehog
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          version="${TRUFFLEHOG_VERSION#v}"
+          archive="trufflehog_${version}_linux_amd64.tar.gz"
+          release="https://github.com/trufflesecurity/trufflehog/releases/download/${TRUFFLEHOG_VERSION}"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" "$release/$archive"
+          curl -sSfL -o "$RUNNER_TEMP/checksums.txt" "$release/trufflehog_${version}_checksums.txt"
+          (cd "$RUNNER_TEMP" && grep "  $archive\$" checksums.txt | sha256sum --check --strict)
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP/bin" trufflehog
+          "$RUNNER_TEMP/bin/trufflehog" --version | grep -F "$version"
+      - name: Scan committed source for secrets
+        run: |
+          # Scan the committed source only. `trufflehog filesystem .` would also walk
+          # .git/ and flag secrets in history (out of scope for this gate, and a
+          # false-positive source — e.g. commit-message URLs). `git archive HEAD` is
+          # exactly the checked-out tree with no .git internals and no untracked files.
+          src="$RUNNER_TEMP/scan-src"
+          rm -rf "$src"; mkdir -p "$src"
+          git archive --format=tar HEAD | tar -x -C "$src"
+          # --no-verification is the safe flag from LESSONS 2026-07-01 (never send a hit
+          # to a provider). No --redact exists on `filesystem`, so keep a matched secret
+          # out of the logs by suppressing stdout and gating on the exit code; stderr
+          # (logs, not secrets) is surfaced on failure. Non-zero = findings or error.
+          if "$RUNNER_TEMP/bin/trufflehog" filesystem "$src" --no-update --no-verification --fail >/dev/null 2>"$RUNNER_TEMP/scan.err"; then
+            echo "secret scan: clean"
+          else
+            echo "::error::trufflehog exited non-zero (potential secrets or a scan error). Raw findings are withheld from CI logs; run 'trufflehog filesystem . --no-update --no-verification' locally to inspect."
+            tail -n 30 "$RUNNER_TEMP/scan.err" || true
+            exit 1
+          fi
+      - name: Scan pushed commit range for secrets
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          base="$BASE_SHA"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            base="$(git rev-list --max-parents=0 HEAD | tail -n 1)"
+          fi
+          if "$RUNNER_TEMP/bin/trufflehog" git "file://$GITHUB_WORKSPACE" \
+              --since-commit "$base" --branch HEAD --no-update --no-verification --fail \
+              >/dev/null 2>"$RUNNER_TEMP/range-scan.err"; then
+            echo "commit-range secret scan: clean"
+          else
+            echo "::error::trufflehog commit-range scan exited non-zero. Raw findings are withheld; inspect privately."
+            tail -n 30 "$RUNNER_TEMP/range-scan.err" || true
+            exit 1
+          fi

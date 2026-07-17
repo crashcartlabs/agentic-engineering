@@ -1,0 +1,3 @@
+# Product specifications
+
+Specifications define what the application must do: users, behavior, acceptance cases, edge cases, constraints, and non-goals. Create them with the `spec` skill before technical planning.

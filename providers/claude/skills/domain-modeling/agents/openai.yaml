@@ -1,0 +1,4 @@
+interface:
+  display_name: "Domain Modeling"
+  short_description: "Use the Domain Modeling workflow in this task."
+  default_prompt: "Use $domain-modeling to help with this task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sandbox"
+  short_description: "Use the Sandbox workflow in this task."
+  default_prompt: "Use $sandbox to help with this task."

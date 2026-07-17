@@ -1,0 +1,4 @@
+interface:
+  display_name: "Todo Cleanup"
+  short_description: "Use the Todo Cleanup workflow in this task."
+  default_prompt: "Use $todo-cleanup to help with this task."

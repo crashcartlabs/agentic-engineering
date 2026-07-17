@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grilling"
+  short_description: "Use the Grilling workflow in this task."
+  default_prompt: "Use $grilling to help with this task."

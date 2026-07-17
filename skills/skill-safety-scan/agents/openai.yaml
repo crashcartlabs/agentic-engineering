@@ -1,0 +1,7 @@
+interface:
+  display_name: "Skill Safety Scan"
+  short_description: "Use the Skill Safety Scan workflow in this task."
+  default_prompt: "Use $skill-safety-scan to help with this task."
+
+policy:
+  allow_implicit_invocation: false

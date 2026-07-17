@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: agentic-engineering-gate
+        name: agentic engineering gate (index source)
+        entry: scripts/ci/run_gate --index
+        language: system
+        pass_filenames: false
+        always_run: true

@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "name": "agentic-engineering",
+  "version": "0.1.0",
+  "description": "A provider-neutral engineering workflow from product specification through operations.",
+  "python": ">=3.9",
+  "workflow": [
+    {
+      "id": "repo-setup",
+      "required": true,
+      "skills": ["new-app"]
+    },
+    {
+      "id": "map",
+      "required": false,
+      "skills": ["wayfinder"]
+    },
+    {
+      "id": "spec",
+      "required": true,
+      "skills": ["spec"]
+    },
+    {
+      "id": "plan",
+      "required": true,
+      "skills": ["plan", "codebase-design", "prototype-spike"]
+    },
+    {
+      "id": "implement",
+      "required": true,
+      "skills": ["execute", "tdd", "sandbox"]
+    },
+    {
+      "id": "verify",
+      "required": true,
+      "skills": ["review-plan"]
+    },
+    {
+      "id": "audit",
+      "required": false,
+      "skills": ["code-audit", "security-audit"]
+    },
+    {
+      "id": "release",
+      "required": true,
+      "skills": ["commit", "ship"]
+    },
+    {
+      "id": "operate",
+      "required": true,
+      "skills": ["babysitting-pr", "diagnosing-bugs", "cleanup-worktrees", "todo-cleanup", "handoff"]
+    }
+  ],
+  "skillPolicy": {
+    "explicit": [
+      "build-skill",
+      "cleanup-worktrees",
+      "cmux",
+      "code-audit",
+      "dashboard",
+      "dogfood",
+      "execute",
+      "handoff",
+      "improve-codebase-architecture",
+      "plan",
+      "prototype-spike",
+      "review-plan",
+      "security-audit",
+      "skill-safety-scan",
+      "spec",
+      "wayfinder"
+    ],
+    "arguments": {
+      "babysitting-pr": "<owner/repo#N or PR URL to babysit>",
+      "build-skill": "[skill-name]",
+      "cleanup-worktrees": "[worktree path or name]",
+      "cmux": "[what to do in cmux]",
+      "code-audit": "[low|medium|high|max]",
+      "dashboard": "start|stop",
+      "dogfood": "<skill-name> [what to focus the test on]",
+      "execute": "<plan-file>",
+      "handoff": "[what the next session will focus on]",
+      "prototype-spike": "<the design question>",
+      "review-plan": "<plan-file>",
+      "security-audit": "[low|medium|high|max] [--full] [--comment]",
+      "skill-safety-scan": "<skill-name | path/to/skill-dir>",
+      "spec": "<idea | --from-conversation | --from-wayfinder issue>",
+      "wayfinder": "<loose idea> | <map issue URL/number> [ticket]"
+    }
+  },
+  "skillMaturity": {
+    "authoring-skills": "design-verified",
+    "babysitting-pr": "partially-live",
+    "build-skill": "design-verified",
+    "cleanup-worktrees": "design-verified",
+    "cmux": "partially-live",
+    "code-audit": "partially-live",
+    "codebase-design": "design-verified",
+    "commit": "partially-live",
+    "dashboard": "partially-live",
+    "diagnosing-bugs": "live-verified",
+    "dogfood": "partially-live",
+    "domain-modeling": "design-verified",
+    "execute": "partially-live",
+    "grilling": "design-verified",
+    "handoff": "partially-live",
+    "improve-codebase-architecture": "design-verified",
+    "new-app": "design-verified",
+    "plan": "design-verified",
+    "prototype-spike": "live-verified",
+    "research": "design-verified",
+    "resolving-merge-conflicts": "live-verified",
+    "review-plan": "partially-live",
+    "sandbox": "design-verified",
+    "security-audit": "partially-live",
+    "ship": "live-verified",
+    "skill-safety-scan": "partially-live",
+    "spec": "design-verified",
+    "tdd": "design-verified",
+    "todo-cleanup": "experimental",
+    "updating-npm-package": "partially-live",
+    "wayfinder": "design-verified"
+  },
+  "agents": {
+    "executor": {
+      "source": "agents/executor.md",
+      "purpose": "Implement an approved plan in isolated context and stop on unsettled intent."
+    }
+  },
+  "providers": {
+    "claude": {
+      "manifest": ".claude-plugin/plugin.json",
+      "agents": "markdown"
+    },
+    "codex": {
+      "manifest": ".codex-plugin/plugin.json",
+      "agents": "toml"
+    },
+    "pi": {
+      "manifest": "package.json",
+      "agents": "extension-backed-markdown"
+    }
+  }
+}

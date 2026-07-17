@@ -1,0 +1,7 @@
+interface:
+  display_name: "Execute"
+  short_description: "Use the Execute workflow in this task."
+  default_prompt: "Use $execute to help with this task."
+
+policy:
+  allow_implicit_invocation: false

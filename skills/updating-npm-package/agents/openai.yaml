@@ -1,0 +1,4 @@
+interface:
+  display_name: "Updating Npm Package"
+  short_description: "Use the Updating Npm Package workflow in this task."
+  default_prompt: "Use $updating-npm-package to help with this task."

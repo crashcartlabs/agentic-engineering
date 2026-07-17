@@ -1,0 +1,26 @@
+# Application agent instructions
+
+## Project
+
+Describe the application's purpose, users, and important architecture boundaries here after inspecting the repository.
+
+## Required workflow
+
+Follow the installed Agentic Engineering lifecycle:
+
+1. Use `wayfinder` only when the product boundary is too foggy to specify.
+2. Write and approve a product contract under `specs/` with `spec`.
+3. Translate the approved spec into an executable plan under `plans/` with `plan`.
+4. Implement only an approved plan with test-first vertical slices.
+5. Verify implementation against the plan and spec before deeper risk-based audits.
+6. Commit and ship with current evidence, then operate and clean up.
+
+Do not collapse specification, planning, implementation, and review into one step.
+
+## Commands
+
+Replace this section with the repository's exact setup, build, test, lint, and type-check commands before implementation begins.
+
+## Definition of done
+
+Define the application-specific behavior, verification, review, deployment, and rollback requirements here.

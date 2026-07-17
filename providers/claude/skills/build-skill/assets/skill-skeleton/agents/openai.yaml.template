@@ -1,0 +1,8 @@
+interface:
+  display_name: "<Human-facing skill name>"
+  short_description: "<25-64 character summary>"
+  default_prompt: "Use $<skill-name> to <example task>."
+
+# Add this block only when the skill is explicit-trigger only.
+# policy:
+#   allow_implicit_invocation: false

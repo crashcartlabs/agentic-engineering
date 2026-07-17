@@ -1,0 +1,13 @@
+{
+  "enabledPlugins": {
+    "codex@openai-codex": true,
+    "superpowers@claude-plugins-official": false
+  },
+  "skillOverrides": {
+    "brainstorming": "off",
+    "security-review": "off",
+    "systematic-debugging": "off",
+    "test-driven-development": "off",
+    "writing-skills": "off"
+  }
+}

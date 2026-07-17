@@ -1,0 +1,7 @@
+interface:
+  display_name: "Code Audit"
+  short_description: "Use the Code Audit workflow in this task."
+  default_prompt: "Use $code-audit to help with this task."
+
+policy:
+  allow_implicit_invocation: false
