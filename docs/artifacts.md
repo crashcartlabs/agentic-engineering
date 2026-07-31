@@ -8,6 +8,7 @@
 | Correctness audit | `code-audit` | `code-reviews/<date>-<topic>.md` | Local by default | Embed actionable evidence in a PR; do not cite an inaccessible local path |
 | Security audit | `security-audit` | `security-reviews/<date>-<topic>.md` | Yes | Risk evidence for release and follow-up |
 | Skill safety scan | `skill-safety-scan` | `skill-scans/<date>-<skill>.md` | Yes | Promotion evidence for the scanned skill |
+| Skill-eval evidence | `agentic eval` (`scripts/eval/run_eval.py`) | `eval-results/<date>-<skill>-<scenario>.json` | Local | Evidence for a manual `skillMaturity` promotion in `toolbelt.json`; cite the record in the skill's `tests.md` when promoting |
 | Handoff | `handoff` | `handoffs/` | Local | Short-lived conversation state; never replaces the plan |
 | Development narrative | Foreground session | `DEVLOG.md` | Yes | Newest-first session record |
 | Lessons queue | Foreground session | `LESSONS.md` | Yes | Temporary correction-to-rule queue |

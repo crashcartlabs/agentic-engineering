@@ -56,6 +56,8 @@ SELFTESTS = (
     ("lint_links.py --selftest", CI_DIR / "lint_links.py", "markdown link selftest: FAIL"),
     ("lint_sediment.py --selftest", CI_DIR / "lint_sediment.py", "sediment lint selftest: FAIL"),
     ("test_check_all.py --selftest", CI_DIR / "test_check_all.py", "aggregate gate selftest: FAIL"),
+    ("test_toolbelt.py --selftest", CI_DIR / "test_toolbelt.py", "toolbelt unit tests: FAIL"),
+    ("run_eval.py --selftest", REPO / "scripts" / "eval" / "run_eval.py", "eval selftest: FAIL"),
     (
         "prepare_archive.py --selftest",
         REPO / "scripts" / "sandbox" / "prepare_archive.py",

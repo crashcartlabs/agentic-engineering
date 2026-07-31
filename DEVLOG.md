@@ -20,6 +20,14 @@ wiring, and the strategic additions (eval harness v1, changelog/versioning, poli
 - Generalized repo-specific facts out of shared skills into AGENTS.md §V ("This
   repository's gate"), made `opensrc` a conditional capability, and trimmed the
   duplicated attribution passages to one canonical line per derived skill.
+- Shipped eval harness v1 (`agentic eval`): provider-pluggable adapters (claude
+  live, codex/pi stubs, hermetic fake for CI), JSON scenarios with deterministic
+  checks plus an optional judge rubric, local evidence records, and pilot
+  scenarios for commit, new-app, and resolving-merge-conflicts. Promotion stays
+  manual: the runner prints the suggested `skillMaturity` edit, never applies it.
+- Bumped all four manifests to 0.2.0, started `CHANGELOG.md`, documented the
+  tag-per-snapshot convention, and added unit tests for previously
+  selftest-only `toolbelt.py` paths.
 
 ## 2026-07-17 — Initial public release
 

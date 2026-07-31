@@ -1067,6 +1067,9 @@ def parser() -> argparse.ArgumentParser:
     send_parser = sub.add_parser("cmux-send", help="Send a safe task to a cmux surface")
     send_parser.add_argument("args", nargs=argparse.REMAINDER)
 
+    eval_parser = sub.add_parser("eval", help="Run a skill's eval scenarios through an agent CLI")
+    eval_parser.add_argument("args", nargs=argparse.REMAINDER)
+
     manifest_parser = sub.add_parser("cmux-manifest", help="Validate and locate a fleet manifest")
     manifest_parser.add_argument("slug")
     manifest_parser.add_argument("--repo", type=pathlib.Path, default=pathlib.Path.cwd())
@@ -1095,6 +1098,7 @@ def main(argv: list[str] | None = None) -> int:
         "dashboard": REPO / "scripts" / "dashboard" / "dashboard.py",
         "cmux-fleet": REPO / "scripts" / "cmux" / "spawn_fleet.py",
         "cmux-send": REPO / "scripts" / "cmux" / "send_task.py",
+        "eval": REPO / "scripts" / "eval" / "run_eval.py",
     }
     if argv and argv[0] in forwarded:
         return run_repo_script(forwarded[argv[0]], argv[1:])

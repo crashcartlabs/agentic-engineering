@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "skill": "resolving-merge-conflicts",
+  "scenario": "resolve-simple-conflict",
+  "fixture": {
+    "files": {
+      "notes.txt": "heading\nshared middle line\nfooter\n"
+    },
+    "git": true,
+    "setup": [
+      ["git", "checkout", "-q", "-b", "feature"],
+      {"write": {"path": "notes.txt", "content": "heading\nfeature-change line\nfooter\n"}},
+      ["git", "commit", "-q", "-am", "feature change"],
+      ["git", "checkout", "-q", "main"],
+      {"write": {"path": "notes.txt", "content": "heading\nmain-change line\nfooter\n"}},
+      ["git", "commit", "-q", "-am", "main change"],
+      {"argv": ["git", "merge", "feature"], "check": false}
+    ]
+  },
+  "prompt": "This repository has a merge of branch 'feature' in progress that stopped on a conflict. Use the resolving-merge-conflicts skill: resolve the conflict in notes.txt so that BOTH the main-change line and the feature-change line are kept (main's line first), then complete the merge with the operation's own tool.",
+  "checks": [
+    {"type": "command", "argv": ["git", "ls-files", "-u"], "expect_exit": 0, "expect_empty_output": true},
+    {"type": "command", "argv": ["git", "diff", "--check", "HEAD"], "expect_exit": 0},
+    {"type": "file_contains", "path": "notes.txt", "pattern": "main-change line"},
+    {"type": "file_contains", "path": "notes.txt", "pattern": "feature-change line"},
+    {"type": "command", "argv": ["git", "rev-parse", "-q", "--verify", "MERGE_HEAD"], "expect_exit": 1},
+    {"type": "git_clean"}
+  ],
+  "judge": {
+    "enabled": false,
+    "rubric": "The merge must be completed with `git merge --continue` (or an equivalent commit of the merge), never aborted, never escaped with `git stash`, and the conflict markers must be gone from the committed file."
+  }
+}
