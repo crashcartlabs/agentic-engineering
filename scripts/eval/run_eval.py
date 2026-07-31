@@ -42,12 +42,23 @@ Scenario schema (schemaVersion 1):
         {"type": "file_exists", "path": "AGENTS.md"},
         {"type": "file_absent", "path": "scratch/"},
         {"type": "file_contains", "path": "AGENTS.md", "pattern": "## "},
+        {"type": "transcript_contains", "pattern": "(?i)installer"},
         {"type": "command", "argv": ["git", "diff", "--check"], "expect_exit": 0,
          "expect_empty_output": true, "expect_output": null},
         {"type": "git_clean"}
       ],
       "judge": {"enabled": false, "rubric": "…"}
     }
+
+The declared `skill` must match the directory the file lives under and `scenario`
+must match the file stem — evidence filenames and promotion suggestions are derived
+from them. A scenario passes only when the provider exited 0, every check passed,
+and (when judged) the judge exited 0 with a PASS verdict.
+
+For the claude provider, the checkout's generated adapter
+(`providers/claude/skills/<skill>/`) is copied into the fixture as a project-level
+skill (`.claude/skills/<skill>/`) before the baseline commit, so the run exercises
+the version under review — never whatever happens to be installed under `~/.claude`.
 
 Fixture content is repo-owned trusted configuration; setup steps run inside the
 throwaway fixture directory only. Exit 0 when every scenario's checks pass, 1
@@ -61,6 +72,7 @@ import datetime
 import json
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -122,8 +134,29 @@ def build_fixture(scenario: dict, root: pathlib.Path) -> None:
             raise EvalError(f"setup step failed ({' '.join(argv)}): {(proc.stderr or proc.stdout).strip()}")
 
 
-def run_check(check: dict, root: pathlib.Path) -> tuple[bool, str]:
+def inject_claude_skill(skill: str, root: pathlib.Path) -> str:
+    """Copy the checkout's generated Claude adapter into the fixture as a project skill.
+
+    Without this, `claude -p` would load whatever version of the skill happens to be
+    installed under the user's home — or none — and the evidence could promote source
+    it never exercised.
+    """
+    source = REPO / "providers" / "claude" / "skills" / skill
+    if not source.is_dir():
+        raise EvalError(
+            f"generated Claude skill missing: {source}; run `python3 scripts/toolbelt.py generate`"
+        )
+    target = root / ".claude" / "skills" / skill
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source, target)
+    return str(source)
+
+
+def run_check(check: dict, root: pathlib.Path, transcript: str) -> tuple[bool, str]:
     kind = check.get("type")
+    if kind == "transcript_contains":
+        found = re.search(check["pattern"], transcript) is not None
+        return found, f"transcript_contains {check['pattern']!r}"
     if kind == "file_exists":
         target = fixture_path(root, check["path"])
         return target.exists(), f"file_exists {check['path']}"
@@ -170,24 +203,43 @@ def parse_judge_verdict(transcript: str) -> bool | None:
     return matches[-1].upper() == "PASS"
 
 
-def load_scenarios(skill: str, only: str | None) -> list[tuple[pathlib.Path, dict]]:
+def load_scenario_file(path: pathlib.Path, skill: str) -> dict:
+    try:
+        scenario = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise EvalError(f"{path}: malformed scenario JSON: {exc}") from exc
+    if scenario.get("schemaVersion") != 1:
+        raise EvalError(f"{path}: unsupported schemaVersion {scenario.get('schemaVersion')!r}")
+    for required in ("skill", "scenario", "prompt", "checks"):
+        if required not in scenario:
+            raise EvalError(f"{path}: missing required field {required!r}")
+    # Evidence filenames and promotion suggestions derive from these fields, so a
+    # copied/renamed file with stale identity must fail loudly, not run as-is.
+    if scenario["skill"] != skill:
+        raise EvalError(
+            f"{path}: declares skill {scenario['skill']!r} but lives under skills/{skill}/evals"
+        )
+    if scenario["scenario"] != path.stem:
+        raise EvalError(
+            f"{path}: declares scenario {scenario['scenario']!r} but the file stem is {path.stem!r}"
+        )
+    return scenario
+
+
+def load_scenarios(skill: str, only: str | None) -> tuple[list[tuple[pathlib.Path, dict]], int]:
+    """Return (selected scenarios, total committed scenario count for the skill)."""
     evals_dir = REPO / "skills" / skill / "evals"
     if not evals_dir.is_dir():
         raise EvalError(f"no evals directory for skill {skill!r} ({evals_dir})")
+    all_paths = sorted(evals_dir.glob("*.json"))
     out: list[tuple[pathlib.Path, dict]] = []
-    for path in sorted(evals_dir.glob("*.json")):
+    for path in all_paths:
         if only and path.stem != only:
             continue
-        scenario = json.loads(path.read_text(encoding="utf-8"))
-        if scenario.get("schemaVersion") != 1:
-            raise EvalError(f"{path}: unsupported schemaVersion {scenario.get('schemaVersion')!r}")
-        for required in ("skill", "scenario", "prompt", "checks"):
-            if required not in scenario:
-                raise EvalError(f"{path}: missing required field {required!r}")
-        out.append((path, scenario))
+        out.append((path, load_scenario_file(path, skill)))
     if not out:
         raise EvalError(f"no matching scenarios for {skill}" + (f"/{only}" if only else ""))
-    return out
+    return out, len(all_paths)
 
 
 def run_scenario(
@@ -202,6 +254,11 @@ def run_scenario(
 ) -> dict:
     with tempfile.TemporaryDirectory(prefix="agentic-eval-") as raw:
         root = pathlib.Path(raw)
+        injected_skill_source = None
+        if provider == "claude":
+            # Before the baseline commit, so git_clean checks stay valid. The codex
+            # and pi adapters must do the equivalent when they are implemented.
+            injected_skill_source = inject_claude_skill(scenario["skill"], root)
         build_fixture(scenario, root)
         result = run_provider(
             provider,
@@ -213,7 +270,7 @@ def run_scenario(
         )
         checks = []
         for check in scenario["checks"]:
-            passed, label = run_check(check, root)
+            passed, label = run_check(check, root, result.transcript)
             checks.append({"check": label, "passed": passed})
         judge_record = None
         if judge and scenario.get("judge", {}).get("rubric"):
@@ -227,16 +284,22 @@ def run_scenario(
             )
             judge_record = {
                 "verdict": parse_judge_verdict(judge_result.transcript),
+                "exit_code": judge_result.exit_code,
                 "transcript": judge_result.transcript[-4000:],
             }
-    all_passed = all(entry["passed"] for entry in checks) and (
-        judge_record is None or judge_record["verdict"] is True
+    # A crashed provider must never produce PASS evidence, even when the checks
+    # happen to be satisfied by baseline state; same for a crashed judge.
+    all_passed = (
+        result.exit_code == 0
+        and all(entry["passed"] for entry in checks)
+        and (judge_record is None or (judge_record["verdict"] is True and judge_record["exit_code"] == 0))
     )
     evidence = {
         "schemaVersion": 1,
         "skill": scenario["skill"],
         "scenario": scenario["scenario"],
         "provider": provider,
+        "injected_skill_source": injected_skill_source,
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "provider_exit_code": result.exit_code,
         "checks": checks,
@@ -246,13 +309,20 @@ def run_scenario(
     }
     results_dir.mkdir(parents=True, exist_ok=True)
     date = datetime.date.today().isoformat()
-    evidence_path = results_dir / f"{date}-{scenario['skill']}-{scenario['scenario']}.json"
+    # Never overwrite prior evidence: a record may already be cited in tests.md,
+    # and reruns (other provider, judge mode, outcome) each deserve their own file.
+    base_name = f"{date}-{scenario['skill']}-{scenario['scenario']}-{provider}"
+    evidence_path = results_dir / f"{base_name}.json"
+    suffix = 2
+    while evidence_path.exists():
+        evidence_path = results_dir / f"{base_name}-{suffix}.json"
+        suffix += 1
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     evidence["evidence_path"] = str(evidence_path)
     return evidence
 
 
-def print_summary(records: list[dict], provider: str) -> None:
+def print_summary(records: list[dict], provider: str, total_scenarios: int) -> None:
     for record in records:
         verdict = "PASS" if record["passed"] else "FAIL"
         print(f"{record['skill']}/{record['scenario']}: {verdict}")
@@ -261,16 +331,26 @@ def print_summary(records: list[dict], provider: str) -> None:
         if record["judge"] is not None:
             print(f"  - judge verdict: {record['judge']['verdict']}")
         print(f"  evidence: {record['evidence_path']}")
-    if provider != "fake" and records and all(record["passed"] for record in records):
-        skill = records[0]["skill"]
-        date = datetime.date.today().isoformat()
+    if provider == "fake" or not records or not all(record["passed"] for record in records):
+        return
+    skill = records[0]["skill"]
+    if len(records) < total_scenarios:
+        # Promoting a skill to live-verified from a subset would contradict the
+        # maturity contract (mixed exercised/design-only scenarios = partially-live).
         print(
-            "\nAll scenarios green. Suggested promotion (manual — the runner never edits "
-            "toolbelt.json):\n"
-            f'  - toolbelt.json skillMaturity."{skill}": consider "live-verified"\n'
-            f"  - skills/{skill}/tests.md evidence line: "
-            f'"Live-verified via eval {pathlib.Path(records[0]["evidence_path"]).name} on {date}."'
+            f"\nSelected scenarios green, but only {len(records)} of {total_scenarios} "
+            f"committed scenarios ran — partial coverage, no promotion suggestion. "
+            f"Run `agentic eval {skill}` without a scenario filter for full coverage."
         )
+        return
+    date = datetime.date.today().isoformat()
+    print(
+        "\nAll scenarios green. Suggested promotion (manual — the runner never edits "
+        "toolbelt.json):\n"
+        f'  - toolbelt.json skillMaturity."{skill}": consider "live-verified"\n'
+        f"  - skills/{skill}/tests.md evidence line: "
+        f'"Live-verified via eval {pathlib.Path(records[0]["evidence_path"]).name} on {date}."'
+    )
 
 
 def selftest() -> int:
@@ -298,6 +378,7 @@ def selftest() -> int:
                 {"type": "file_exists", "path": "artifact.txt"},
                 {"type": "file_contains", "path": "artifact.txt", "pattern": "fake agent"},
                 {"type": "file_exists", "path": "extra.txt"},
+                {"type": "transcript_contains", "pattern": "VERDICT"},
                 {"type": "command", "argv": ["git", "log", "--oneline"], "expect_exit": 0},
             ],
             "judge": {"enabled": True, "rubric": "artifact.txt exists"},
@@ -323,6 +404,20 @@ def selftest() -> int:
             if stored["skill"] != "selftest-skill" or stored["passed"] is not True:
                 failures.append(f"evidence record content wrong: {stored!r}")
 
+        rerun = run_scenario(
+            scenario,
+            provider="fake",
+            timeout=60,
+            judge=False,
+            bypass_permissions=False,
+            fake_script=script,
+            results_dir=base / "results",
+        )
+        if rerun["evidence_path"] == record["evidence_path"]:
+            failures.append("rerun overwrote the prior evidence record")
+        elif not rerun["evidence_path"].endswith("-2.json"):
+            failures.append(f"rerun did not use a collision suffix: {rerun['evidence_path']}")
+
         failing = dict(scenario)
         failing["scenario"] = "framework-negative"
         failing["checks"] = [{"type": "file_exists", "path": "never-created.txt"}]
@@ -337,6 +432,75 @@ def selftest() -> int:
         )
         if record["passed"]:
             failures.append("failing check was reported as passed")
+
+        crashing_script = base / "crashing_agent.py"
+        crashing_script.write_text("import sys\nsys.exit(7)\n", encoding="utf-8")
+        crashed = dict(scenario)
+        crashed["scenario"] = "framework-crash"
+        crashed["checks"] = [{"type": "file_exists", "path": "seed.txt"}]  # satisfied by baseline
+        record = run_scenario(
+            crashed,
+            provider="fake",
+            timeout=60,
+            judge=False,
+            bypass_permissions=False,
+            fake_script=crashing_script,
+            results_dir=base / "results",
+        )
+        if record["passed"] or record["provider_exit_code"] != 7:
+            failures.append(
+                f"nonzero provider exit did not fail the verdict: {record['passed']!r}, "
+                f"exit {record['provider_exit_code']!r}"
+            )
+
+        transcript_neg = dict(scenario)
+        transcript_neg["scenario"] = "framework-transcript-negative"
+        transcript_neg["checks"] = [{"type": "transcript_contains", "pattern": "never-printed-token"}]
+        record = run_scenario(
+            transcript_neg,
+            provider="fake",
+            timeout=60,
+            judge=False,
+            bypass_permissions=False,
+            fake_script=script,
+            results_dir=base / "results",
+        )
+        if record["passed"]:
+            failures.append("transcript_contains matched text the provider never printed")
+
+        bad_json = base / "bad.json"
+        bad_json.write_text("{not json", encoding="utf-8")
+        try:
+            load_scenario_file(bad_json, "bad")
+        except EvalError:
+            pass
+        else:
+            failures.append("malformed scenario JSON did not raise EvalError")
+        foreign = base / "expected.json"
+        foreign.write_text(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "skill": "foreign",
+                    "scenario": "different",
+                    "prompt": "p",
+                    "checks": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        try:
+            load_scenario_file(foreign, "requested")
+        except EvalError:
+            pass
+        else:
+            failures.append("mismatched scenario identity did not raise EvalError")
+
+        injected = inject_claude_skill("spec", base / "inject-fixture")
+        if not (base / "inject-fixture" / ".claude" / "skills" / "spec" / "SKILL.md").is_file():
+            failures.append("claude skill injection did not copy the generated adapter")
+        if "providers" not in injected:
+            failures.append(f"injection source is not the generated adapter: {injected}")
 
         try:
             fixture_path(base, "../escape.txt")
@@ -388,7 +552,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.skill:
         parser.error("skill is required unless --selftest is given")
     try:
-        scenarios = load_scenarios(args.skill, args.scenario)
+        scenarios, total_scenarios = load_scenarios(args.skill, args.scenario)
         records = [
             run_scenario(
                 scenario,
@@ -402,7 +566,7 @@ def main(argv: list[str] | None = None) -> int:
     except EvalError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    print_summary(records, args.provider)
+    print_summary(records, args.provider, total_scenarios)
     return 0 if all(record["passed"] for record in records) else 1
 
 

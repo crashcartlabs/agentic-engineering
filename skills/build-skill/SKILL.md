@@ -115,14 +115,17 @@ meaning has a single source of truth; the body is as short as the task allows.
 ## Step 6 — Verify
 
 Run the ≥3 `tests.md` scenarios *through the skill* the way it will actually be
-invoked — where `/dogfood` is available, that is the tool for this step: run
-`/dogfood <skill-name>` and let it drive the scenarios and record the verdicts. Same
-quality as your manual runs? Fix the skill, not the output, when they diverge. **If
-your harness only registers a freshly built skill after a reload or new session**,
-run this step after that boundary—that restart *is* the dogfood—or verify
-same-session by replaying each scenario against the skill's steps by hand. Then clear
-the mechanical gate: `check-skill <skill-dir>` if installed, else walk
-`references/checklist.md` by hand. Zero hard-gate failures required.
+invoked. Where `/dogfood` is available **and the skill already sits at its registered
+location** (`skills/<name>` — the sharpen-an-existing-skill path), that is the tool
+for this step: run `/dogfood <skill-name>` and let it drive the scenarios and record
+the verdicts. A **staged draft** (`staging/<name>`) is not registrable yet — `/dogfood`
+resolves only live skills — so verify it by replaying each scenario against the
+skill's steps by hand, then run `/dogfood` immediately after Step 7's promotion as
+the confirming live pass. Same quality as your manual runs? Fix the skill, not the
+output, when they diverge. **If your harness only registers a freshly built skill
+after a reload or new session**, run this step after that boundary—that restart *is*
+the dogfood. Then clear the mechanical gate: `check-skill <skill-dir>` if installed,
+else walk `references/checklist.md` by hand. Zero hard-gate failures required.
 
 **Status vocabulary — `live-verified` vs `design-verified` (the whole `tests.md` corpus
 uses these; here is what they mean).** A scenario is **live-verified** only when *its own
@@ -151,7 +154,8 @@ patch the one output. When it just works, stop touching it.
 
 **Completion criterion:** the skill lives in its target directory, and you have told
 the user plainly what you verified and what is still unproven — citing the Step 6
-`/dogfood` verdict (or the manual-replay record) as the promotion evidence.
+`/dogfood` verdict, or, for a skill that was staged, the manual-replay record plus
+the post-promotion `/dogfood` confirming pass, as the promotion evidence.
 
 ## Step 8 — Later: sharpen it
 

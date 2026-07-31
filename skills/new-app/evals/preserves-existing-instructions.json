@@ -12,6 +12,7 @@
   "prompt": "Use the new-app skill to bootstrap this repository into the agentic engineering workflow. Do not ask for confirmation; if a step would require approval you do not have, stop instead.",
   "checks": [
     {"type": "file_contains", "path": "AGENTS.md", "pattern": "SENTINEL-LOCAL-POLICY"},
+    {"type": "transcript_contains", "pattern": "(?i)AGENTS\\.md"},
     {"type": "git_clean"}
   ],
   "judge": {

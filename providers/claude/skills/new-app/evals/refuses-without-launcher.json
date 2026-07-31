@@ -14,6 +14,7 @@
     {"type": "file_absent", "path": "CLAUDE.md"},
     {"type": "file_absent", "path": "specs"},
     {"type": "file_absent", "path": "plans"},
+    {"type": "transcript_contains", "pattern": "(?i)install"},
     {"type": "git_clean"}
   ],
   "judge": {

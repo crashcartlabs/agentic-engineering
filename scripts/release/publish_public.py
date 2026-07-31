@@ -96,7 +96,10 @@ def publish(remote: str, ref: str, dry_run: bool, today: str) -> int:
             out = REPO / ".public-snapshot-dryrun"
             if out.exists():
                 shutil.rmtree(out)
-            shutil.copytree(tree, out)
+            # symlinks=True preserves tracked symlinks as links (the prior `cp -r`
+            # behavior); the default would dereference them, making the inspection
+            # copy differ from the tree actually committed and pushed.
+            shutil.copytree(tree, out, symlinks=True)
             print(f"dry run: built public snapshot of {ref} ({short_sha}) at {out}")
             print("        (no push performed; remove the directory when done)")
             return 0
