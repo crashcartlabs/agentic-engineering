@@ -8,7 +8,7 @@ description: "Investigate a question against high-trust primary sources and capt
 
 Spin up a **background agent** to do the research, so you keep working while it reads.
 
-Adapted from Matt Pocock's MIT-licensed skills collection (github.com/mattpocock/skills); see `ATTRIBUTION.md`.
+Adapted from Matt Pocock's MIT-licensed skills collection (github.com/mattpocock/skills); full attribution lives in the toolbelt repository's `ATTRIBUTION.md`.
 
 Its job:
 

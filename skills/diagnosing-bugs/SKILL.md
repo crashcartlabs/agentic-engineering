@@ -7,7 +7,7 @@ description: "Diagnose a bug by proving its cause before changing code — tight
 
 A bug is a **gap between what the code does and what you believe it does**; debugging closes it by investigation, never by guessing (§VII). The fast, plausible fix — wrap the crash in a `try`, drop a null check where the stack trace pointed — moves the bug somewhere quieter instead of removing it. That is exactly the code that passes a casual review and fails when it matters. The discipline below is the antidote: reproduce before you touch anything, change one thing at a time, and prove the cause with a test that was red a minute ago.
 
-Adapted from Matt Pocock's MIT-licensed skills collection (github.com/mattpocock/skills); see `ATTRIBUTION.md`.
+Adapted from Matt Pocock's MIT-licensed skills collection (github.com/mattpocock/skills); full attribution lives in the toolbelt repository's `ATTRIBUTION.md`.
 
 Detect the project's run/build story first — some projects run TypeScript, Python, or shell directly, others need a build or compile step. Give every command in a form that works on both Windows PowerShell and a POSIX shell, or give both.
 

@@ -32,14 +32,17 @@ see that the PR is being watched after this session ends.
 
 ## Monitor fallback
 
-If the harness has neither `subscribe_pr_activity` nor `send_later`, map them to:
+Map each missing capability independently — a harness may expose one native tool
+but not the other:
 
-- a persistent Monitor poll-stream over PR state, emitting deltas for CI, submitted
-  reviews, inline comments, conversation-level comments, mergeable transitions, and
-  the merged/closed terminal states, at roughly a 60-second interval;
-- an hourly CronCreate check-in on an off-minute.
+- without `subscribe_pr_activity`: a persistent Monitor poll-stream over PR state,
+  emitting deltas for CI, submitted reviews, inline comments, conversation-level
+  comments, mergeable transitions, and the merged/closed terminal states, at
+  roughly a 60-second interval;
+- without `send_later`: an hourly CronCreate check-in on an off-minute.
 
-Tear both down at wind-down.
+Never duplicate a native capability with its fallback. Tear down whatever fallbacks
+you created at wind-down.
 
 Seed the monitor's first previous-state value from the arm-time snapshot. Do not let
 the first poll self-baseline: anything that lands between the arm read and the first

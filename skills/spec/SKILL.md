@@ -16,7 +16,7 @@ cases, edge cases, non-goals, and product constraints. `/plan` later decides **h
 to build it**: files, architecture, phases, test seams, validation commands, rollout,
 and rollback.
 
-Adapted from Matt Pocock's MIT-licensed skills collection (github.com/mattpocock/skills); see `ATTRIBUTION.md`.
+Adapted from Matt Pocock's MIT-licensed skills collection (github.com/mattpocock/skills); full attribution lives in the toolbelt repository's `ATTRIBUTION.md`.
 
 It can interview from a rough idea, synthesize the current conversation, or consume a
 wayfinder ticket. It saves a repo-local spec first; publishing to GitHub is optional

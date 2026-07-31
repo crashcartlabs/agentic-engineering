@@ -44,10 +44,23 @@ def main() -> int:
     # generated provider adapter, or the pre-commit hook would wave drift through.
     with tempfile.TemporaryDirectory(prefix="aggregate-quick-selftest-") as raw:
         copy = pathlib.Path(raw) / "repo"
+        # Only tracked source matters for the drift check; ignored artifact
+        # directories (local evidence, worktrees, sandbox archives) can be large
+        # and must not slow or break the gate's self-copy.
         shutil.copytree(
             check_all.REPO,
             copy,
-            ignore=shutil.ignore_patterns(".git", "__pycache__", ".public-snapshot-dryrun"),
+            ignore=shutil.ignore_patterns(
+                ".git",
+                "__pycache__",
+                ".public-snapshot-dryrun",
+                "eval-results",
+                ".claude",
+                ".sandbox",
+                ".cmux",
+                "handoffs",
+                "code-reviews",
+            ),
         )
         subprocess.run(["git", "init", "--quiet"], cwd=copy, check=True)
         subprocess.run(["git", "add", "-A"], cwd=copy, check=True)

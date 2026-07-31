@@ -46,9 +46,11 @@ DENYLIST: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("private namespace reference", re.compile(r"mjenkins", re.IGNORECASE)),
     ("personal-machine claim", re.compile(r"installed globally on this machine", re.IGNORECASE)),
     # First character of a real username — [A-Za-z0-9_] — but not `<`, so doc
-    # placeholders like /Users/<you> stay legal while /Users/Alice is caught.
+    # placeholders like /Users/<you> or C:\Users\<you> stay legal while concrete
+    # usernames are caught, on every platform's home-path form.
     ("hardcoded macOS home path", re.compile(r"/Users/[A-Za-z0-9_]")),
-    ("hardcoded Windows home path", re.compile(r"[A-Za-z]:[/\\]Users[/\\]")),
+    ("hardcoded Linux home path", re.compile(r"/home/[A-Za-z0-9_]")),
+    ("hardcoded Windows home path", re.compile(r"[A-Za-z]:[/\\]Users[/\\][A-Za-z0-9_]")),
     ("this-repo gate command", re.compile(r"scripts/ci/check_all\.py")),
     ("internal milestone reference", re.compile(r"\bM2-\d\d\b")),
 )
@@ -98,6 +100,7 @@ def selftest() -> int:
         "opensrc is installed globally on this machine",
         "read /Users/someone/code/app",
         "read /Users/Alice/code/app",
+        "read /home/alice/code/app",
         "read C:\\Users\\someone\\code\\app",
         "read D:/Users/Alice/repo",
         "the gate is python3 scripts/ci/check_all.py",
@@ -106,9 +109,15 @@ def selftest() -> int:
     for line in dirty_lines:
         if not scan_text("fixture.md", line, ()):
             failures.append(f"denylist missed: {line!r}")
-    clean = "Discover the repo's gate from CI config; run it from the project root.\n"
-    if scan_text("fixture.md", clean, ()):
-        failures.append("clean fixture was flagged")
+    clean_lines = (
+        "Discover the repo's gate from CI config; run it from the project root.",
+        "an example path like /Users/<you>/code/app",
+        "an example path like /home/<you>/code/app",
+        "an example path like C:\\Users\\<you>\\repo or C:/Users/<you>/repo",
+    )
+    for line in clean_lines:
+        if scan_text("fixture.md", line, ()):
+            failures.append(f"clean fixture was flagged: {line!r}")
     hits = scan_text("fixture.md", "token hunter2 present", ("hunter2",))
     if not hits:
         failures.append("extra-literal token was not flagged")

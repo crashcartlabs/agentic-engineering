@@ -28,9 +28,11 @@ Then set up **two** wake sources, because neither alone is enough:
   **new pushes**, and **merge-conflict transitions**. Re-read status, CI, and
   mergeability; if nothing changed, **re-arm silently** — no ping, no comment.
 
-Check what the active harness actually exposes before arming. If it lacks either
-tool, map the missing one to a persistent Monitor poll-stream for PR-state deltas
-and an hourly CronCreate check-in; tear both down at wind-down. Seed the monitor's baseline from
+Check what the active harness actually exposes before arming, then map each missing
+tool independently: without `subscribe_pr_activity`, run a persistent Monitor
+poll-stream for PR-state deltas; without `send_later`, use an hourly CronCreate
+check-in. Never duplicate a native capability with its fallback; tear down whatever
+fallbacks you created at wind-down. Seed the monitor's baseline from
 the arm-time snapshot, and build that seed with the **same extraction code the loop
 runs**, including paginated comment/review counts aggregated across pages; details are
 in `references/watch-arming.md`.

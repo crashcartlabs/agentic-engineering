@@ -7,7 +7,7 @@ A loose idea has arrived — too big for one agent session, and wrapped in fog: 
 
 The destination varies per effort, and naming it is the first act of charting — it shapes every ticket. It might be a spec to hand off and iterate on, a decision to lock before planning starts, or a change made in place like a data-structure migration. The map is domain-agnostic — engineering work, course content, whatever fits the shape.
 
-Adapted from Matt Pocock's MIT-licensed skills collection (github.com/mattpocock/skills); see `ATTRIBUTION.md`.
+Adapted from Matt Pocock's MIT-licensed skills collection (github.com/mattpocock/skills); full attribution lives in the toolbelt repository's `ATTRIBUTION.md`.
 
 ## Where this sits among the local skills
 

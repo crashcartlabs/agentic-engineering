@@ -283,7 +283,72 @@ def load_scenario_file(path: pathlib.Path, skill: str) -> dict:
         raise EvalError(
             f"{path}: declares scenario {scenario['scenario']!r} but the file stem is {path.stem!r}"
         )
+    validate_scenario_shape(path, scenario)
     return scenario
+
+
+CHECK_REQUIRED_FIELDS = {
+    "file_exists": ("path",),
+    "file_absent": ("path",),
+    "file_contains": ("path", "pattern"),
+    "command": ("argv",),
+    "git_clean": (),
+    "transcript_contains": ("pattern",),
+}
+
+
+def validate_scenario_shape(path: pathlib.Path, scenario: dict) -> None:
+    """Reject malformed nested fields at load, per the exit-2 configuration contract.
+
+    Without this, a committed scenario with e.g. a check missing its `path` passes
+    the gate's load-only validation and later crashes a live run with a KeyError.
+    """
+    fixture = scenario.get("fixture", {})
+    if not isinstance(fixture, dict):
+        raise EvalError(f"{path}: fixture must be an object")
+    files = fixture.get("files", {})
+    if not isinstance(files, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in files.items()
+    ):
+        raise EvalError(f"{path}: fixture.files must map string paths to string contents")
+    if not isinstance(fixture.get("git", False), bool):
+        raise EvalError(f"{path}: fixture.git must be a boolean")
+    shadow = fixture.get("shadow_commands", [])
+    if not isinstance(shadow, list) or not all(isinstance(n, str) for n in shadow):
+        raise EvalError(f"{path}: fixture.shadow_commands must be a list of strings")
+    for i, step in enumerate(fixture.get("setup", [])):
+        argv = step.get("argv") if isinstance(step, dict) and "write" not in step else None
+        if isinstance(step, dict) and "write" in step:
+            spec = step["write"]
+            if not isinstance(spec, dict) or not isinstance(spec.get("path"), str) or not isinstance(spec.get("content"), str):
+                raise EvalError(f"{path}: setup[{i}].write needs string path and content")
+        elif not isinstance(argv if argv is not None else step, list) or not all(
+            isinstance(part, str) for part in (argv if argv is not None else step)
+        ):
+            raise EvalError(f"{path}: setup[{i}] must be an argv list of strings or a write step")
+    checks = scenario["checks"]
+    if not isinstance(checks, list):
+        raise EvalError(f"{path}: checks must be a list")
+    for i, check in enumerate(checks):
+        if not isinstance(check, dict) or check.get("type") not in CHECK_REQUIRED_FIELDS:
+            raise EvalError(
+                f"{path}: checks[{i}] must declare a known type "
+                f"({', '.join(sorted(CHECK_REQUIRED_FIELDS))})"
+            )
+        for field in CHECK_REQUIRED_FIELDS[check["type"]]:
+            value = check.get(field)
+            if field == "argv":
+                if not isinstance(value, list) or not value or not all(isinstance(p, str) for p in value):
+                    raise EvalError(f"{path}: checks[{i}].argv must be a non-empty list of strings")
+            elif not isinstance(value, str) or not value:
+                raise EvalError(f"{path}: checks[{i}] is missing required field {field!r}")
+    judge_config = scenario.get("judge", {})
+    if not isinstance(judge_config, dict):
+        raise EvalError(f"{path}: judge must be an object")
+    if (judge_config.get("enabled") or judge_config.get("required")) and not isinstance(
+        judge_config.get("rubric"), str
+    ):
+        raise EvalError(f"{path}: an enabled/required judge needs a string rubric")
 
 
 def load_scenarios(skill: str, only: str | None) -> tuple[list[tuple[pathlib.Path, dict]], int]:
@@ -336,7 +401,15 @@ def run_scenario(
             passed, label = run_check(check, root, result.transcript)
             checks.append({"check": label, "passed": passed})
         judge_record = None
-        if judge and scenario.get("judge", {}).get("rubric"):
+        judge_full_transcript = None
+        judge_config = scenario.get("judge", {})
+        # --judge opts the run in; the scenario still decides whether its rubric
+        # applies (enabled/required). A disabled judge is never run unsolicited.
+        if (
+            judge
+            and judge_config.get("rubric")
+            and (judge_config.get("enabled") or judge_config.get("required"))
+        ):
             judge_result = run_provider(
                 provider,
                 judge_prompt(scenario, result.transcript),
@@ -345,6 +418,7 @@ def run_scenario(
                 bypass_permissions=False,
                 fake_script=fake_script,
             )
+            judge_full_transcript = judge_result.transcript
             judge_record = {
                 "verdict": parse_judge_verdict(judge_result.transcript),
                 "exit_code": judge_result.exit_code,
@@ -381,10 +455,14 @@ def run_scenario(
     while evidence_path.exists():
         evidence_path = results_dir / f"{base_name}-{suffix}.json"
         suffix += 1
-    # The JSON keeps a readable tail; the complete transcript goes to a sibling
-    # artifact so promotion evidence stays fully auditable for long runs.
+    # The JSON keeps readable tails; the complete transcripts — provider and, when
+    # run, judge — go to a sibling artifact so promotion evidence stays fully
+    # auditable for long runs.
     transcript_path = evidence_path.with_name(evidence_path.stem + "-transcript.txt")
-    transcript_path.write_text(result.transcript, encoding="utf-8")
+    full_text = result.transcript
+    if judge_full_transcript is not None:
+        full_text += "\n\n===== JUDGE RESPONSE =====\n" + judge_full_transcript
+    transcript_path.write_text(full_text, encoding="utf-8")
     evidence["transcript_path"] = str(transcript_path)
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     evidence["evidence_path"] = str(evidence_path)
@@ -616,6 +694,25 @@ def selftest() -> int:
             pass
         else:
             failures.append("mismatched scenario identity did not raise EvalError")
+        malformed_check = base / "malformed.json"
+        malformed_check.write_text(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "skill": "bad",
+                    "scenario": "malformed",
+                    "prompt": "p",
+                    "checks": [{"type": "file_exists"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        try:
+            load_scenario_file(malformed_check, "bad")
+        except EvalError:
+            pass
+        else:
+            failures.append("a check missing its required field did not raise EvalError")
 
         probe_script = base / "probe_agent.py"
         probe_script.write_text(

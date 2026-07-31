@@ -207,12 +207,20 @@ def validate_source(*, check_generated: bool = True) -> list[str]:
     for rel in ("toolbelt.json", "package.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
         path = REPO / rel
         if not path.is_file():
+            errors.append(f"{rel}: release manifest is missing")
             continue
         try:
-            manifest_versions[rel] = json.loads(path.read_text(encoding="utf-8")).get("version")
+            version = json.loads(path.read_text(encoding="utf-8")).get("version")
         except json.JSONDecodeError:
             errors.append(f"{rel}: invalid JSON")
-    if len({version for version in manifest_versions.values() if version is not None}) > 1:
+            continue
+        # Every manifest must carry the release identity; a missing version must
+        # fail rather than being filtered out of the comparison.
+        if not isinstance(version, str) or not version.strip():
+            errors.append(f"{rel}: missing or empty `version`")
+            continue
+        manifest_versions[rel] = version
+    if len(set(manifest_versions.values())) > 1:
         errors.append(f"manifest version mismatch: {manifest_versions}")
     return errors
 
