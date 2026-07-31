@@ -102,6 +102,8 @@ If ecosystem research ran, carry only the durable outputs into the final plan's 
 
 Diagram guidance: include a **Mermaid phase-dependency graph** when execution order matters (it doubles as a machine-readable instruction for the executor). Add other Mermaid diagrams (architecture flowchart, sequence, state, tree) only when one genuinely adds context — never a decorative diagram. For quick sketches *during the conversation*, use ASCII/Unicode (the terminal won't render Mermaid).
 
+**Mark each phase's TDD discipline.** Every implementation phase carries a `TDD:` line next to its Validation line: `TDD: strict` for a behavioral phase the executor must build through the `/tdd` red-green loop, or `TDD: none — <reason>` (scaffolding, config, generated files, pure refactor under existing tests). This is what arms `/tdd`'s "an approved plan marks a phase as strict TDD" trigger — an unmarked phase leaves the executor guessing the testing contract.
+
 ### Gate 2 — Plan approved
 
 Present the written plan. The human reviews and approves it as the **contract** before it ever reaches an executor. Revise until approved. On approval, update `Status: approved` and `Branch: plan/<kebab-topic>` together in one atomic file replacement. If the plan has a governing spec, update that spec's `Plan` row to the new plan path in the same approval handoff, then re-read both links before **offering the handoff**: ask whether to kick off `/execute <plan-file>` now or later — an offer, never an auto-run.

@@ -43,6 +43,28 @@ Fill the generated `AGENTS.md` with facts discovered from the target repository:
 - definition of done and review expectations;
 - any directory-specific rules that every agent must follow.
 
+**Discover the commands; never invent them.** Work through these sources in order,
+and record only commands the repository itself names:
+
+1. **CI workflow files** (`.github/workflows/`, or the platform's equivalent) — the
+   ground truth: whatever CI runs is by definition the repo's real gate.
+2. **Package/build manifests** — `package.json` scripts, `pyproject.toml` /
+   `Makefile` / `justfile` / `Taskfile` targets, and the lockfile (which also pins
+   the package manager: `pnpm-lock.yaml` means `pnpm run …`, not `npm run …`).
+3. **README / CONTRIBUTING / docs** — for setup steps and conventions CI doesn't
+   exercise.
+4. **The user** — for anything still unknown after 1–3, ask once rather than
+   guessing; a plausible-but-wrong command in `AGENTS.md` misleads every future
+   session.
+
+When sources disagree, CI wins; note the discrepancy for the user. For a brand-new
+empty repository with no commands yet, write the section as an explicit decision
+list for `/spec`/`/plan` to settle — not as invented placeholders.
+
+**Completion check:** every command written into `AGENTS.md` was found in the
+repository's own files or confirmed by the user, and none of the template's
+placeholder text remains.
+
 Keep `CLAUDE.md` as a thin adapter that points to `AGENTS.md`. Do not copy shared skills or agent prompts into the application repository.
 
 ## 4. Route into the lifecycle

@@ -123,12 +123,14 @@ graph TD
 - [ ] 1.1 <task>
 - [ ] 1.2 <task>
 
+**TDD:** <`strict` for a behavioral phase built red-green through /tdd, or `none — <reason>`.>
 **Validation:** <how this phase proves itself — commands to run, behavior to observe.>
 
 ### Phase 2 — <name>
 
 - [ ] 2.1 <task>
 
+**TDD:** <...>
 **Validation:** <...>
 
 ## Test / validation strategy

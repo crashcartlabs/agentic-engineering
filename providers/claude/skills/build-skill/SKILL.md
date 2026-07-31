@@ -118,9 +118,11 @@ meaning has a single source of truth; the body is as short as the task allows.
 ## Step 6 — Verify
 
 Run the ≥3 `tests.md` scenarios *through the skill* the way it will actually be
-invoked — same quality as your manual runs? Fix the skill, not the output, when they
-diverge. **If your harness only registers a freshly built skill after a reload or new
-session**, run this step after that boundary—that restart *is* the dogfood—or verify
+invoked — where `/dogfood` is available, that is the tool for this step: run
+`/dogfood <skill-name>` and let it drive the scenarios and record the verdicts. Same
+quality as your manual runs? Fix the skill, not the output, when they diverge. **If
+your harness only registers a freshly built skill after a reload or new session**,
+run this step after that boundary—that restart *is* the dogfood—or verify
 same-session by replaying each scenario against the skill's steps by hand. Then clear
 the mechanical gate: `check-skill <skill-dir>` if installed, else walk
 `references/checklist.md` by hand. Zero hard-gate failures required.
@@ -151,7 +153,8 @@ real, and when it breaks, fix the *skill* so that failure can't recur — don't 
 patch the one output. When it just works, stop touching it.
 
 **Completion criterion:** the skill lives in its target directory, and you have told
-the user plainly what you verified and what is still unproven.
+the user plainly what you verified and what is still unproven — citing the Step 6
+`/dogfood` verdict (or the manual-replay record) as the promotion evidence.
 
 ## Step 8 — Later: sharpen it
 
