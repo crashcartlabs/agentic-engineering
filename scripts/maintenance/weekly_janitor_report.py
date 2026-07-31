@@ -35,8 +35,34 @@ LESSON_AGE_DAYS = 14
 ISSUE_STALE_DAYS = 14
 DEVLOG_ENTRY_LIMIT = 8
 MERGE_LIMIT = 10
-TARGET_ISSUE = 65
-DASHBOARD_PRS = (81, 83, 84)
+
+
+def _env_int(name: str) -> int | None:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        print(f"warning: {name}={raw!r} is not an integer; ignoring it", file=sys.stderr)
+        return None
+
+
+def _env_int_tuple(name: str) -> tuple[int, ...]:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return ()
+    try:
+        return tuple(int(part.strip()) for part in raw.split(",") if part.strip())
+    except ValueError:
+        print(f"warning: {name}={raw!r} is not a comma-separated integer list; ignoring it", file=sys.stderr)
+        return ()
+
+
+# Repo-specific callouts are configuration, not code: set these env vars (or the
+# matching CLI flags) in the deployment that wants them. Absent means disabled.
+TARGET_ISSUE = _env_int("AGENTIC_JANITOR_TARGET_ISSUE")
+DASHBOARD_PRS = _env_int_tuple("AGENTIC_JANITOR_DASHBOARD_PRS")
 
 DEVLOG_HEADING = re.compile(r"^## \d{4}-\d{2}-\d{2}\b", re.MULTILINE)
 
@@ -899,6 +925,21 @@ def render_markdown(report: WeeklyReport) -> str:
 def selftest() -> int:
     failures: list[str] = []
     today = dt.date(2026, 7, 8)
+
+    env_name = "AGENTIC_JANITOR_SELFTEST_PROBE"
+    os.environ.pop(env_name, None)
+    if _env_int(env_name) is not None or _env_int_tuple(env_name) != ():
+        failures.append("env helpers did not treat an unset variable as disabled")
+    os.environ[env_name] = "not-a-number"
+    if _env_int(env_name) is not None or _env_int_tuple(env_name) != ():
+        failures.append("env helpers did not ignore a malformed value")
+    os.environ[env_name] = "7"
+    if _env_int(env_name) != 7:
+        failures.append("env int helper did not parse a valid integer")
+    os.environ[env_name] = "81, 83"
+    if _env_int_tuple(env_name) != (81, 83):
+        failures.append("env tuple helper did not parse a comma-separated list")
+    os.environ.pop(env_name, None)
     old_lessons = scan_old_lessons(
         "# LESSONS\n\n- 2026-06-20 - Old enough.\n- 2026-06-25 - Also old.\n- 2026-07-01 - Fresh.\n",
         today=today,
@@ -1006,6 +1047,15 @@ def selftest() -> int:
             failures.append("configured dashboard PRs were not inspected and returned")
         if configured_report.target_issue != 7:
             failures.append("configured target issue was not retained in the report model")
+        absent_report, _absent_findings = scan_issues(
+            pathlib.Path("/repo"),
+            today=today,
+            stale_days=14,
+            target_issue=None,
+            dashboard_prs=(),
+        )
+        if absent_report.action_items or absent_report.dashboard_prs:
+            failures.append("disabled janitor targets still produced action items or PR summaries")
     finally:
         globals()["repo_slug"] = original_repo_slug
         globals()["gh_json"] = original_gh_json

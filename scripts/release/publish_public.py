@@ -24,6 +24,8 @@ from __future__ import annotations
 import argparse
 import datetime
 import pathlib
+import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -93,8 +95,8 @@ def publish(remote: str, ref: str, dry_run: bool, today: str) -> int:
             # soon-to-be-deleted temp dir.
             out = REPO / ".public-snapshot-dryrun"
             if out.exists():
-                subprocess.run(["rm", "-rf", str(out)], check=True)
-            subprocess.run(["cp", "-r", str(tree), str(out)], check=True)
+                shutil.rmtree(out)
+            shutil.copytree(tree, out)
             print(f"dry run: built public snapshot of {ref} ({short_sha}) at {out}")
             print("        (no push performed; remove the directory when done)")
             return 0
@@ -112,8 +114,12 @@ def selftest() -> int:
         failures.append("DEVLOG reset is missing a dated entry with a Focus section")
     if not files["LESSONS.md"].startswith("# LESSONS"):
         failures.append("LESSONS reset is missing its header")
-    if "mjenkinsx9" in "".join(files.values()):
-        failures.append("reset files still reference the private namespace")
+    if files["TODO.md"] != "# TODO\n":
+        failures.append("TODO reset deviates from its expected bare header")
+    # The reset files must carry no repository handles or account references of
+    # any kind; the sediment lint and the CI secret scan cover the wider tree.
+    if re.search(r"[A-Za-z0-9-]+@|github\.com/", "".join(files.values())):
+        failures.append("reset files contain an account handle or repository URL")
     print("publish_public selftest:", "OK" if not failures else "FAIL")
     for failure in failures:
         print(f"  - {failure}")

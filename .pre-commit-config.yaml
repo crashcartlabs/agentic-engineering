@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: agentic-engineering-gate
         name: agentic engineering gate (index source)
-        entry: scripts/ci/run_gate --index
-        language: system
+        entry: python scripts/ci/check_all.py --index
+        language: python
         pass_filenames: false
         always_run: true

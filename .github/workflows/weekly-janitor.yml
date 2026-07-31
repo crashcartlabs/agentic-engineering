@@ -26,6 +26,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PYTHONDONTWRITEBYTECODE: "1"
+          # Optional repo-specific callouts; leave unset to disable.
+          # AGENTIC_JANITOR_TARGET_ISSUE: "65"
+          # AGENTIC_JANITOR_DASHBOARD_PRS: "81,83,84"
         run: |
           mkdir -p "$RUNNER_TEMP/janitor"
           python3 scripts/maintenance/weekly_janitor_report.py \

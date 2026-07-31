@@ -1,6 +1,6 @@
 ---
 name: babysitting-pr
-description: "Keep one open PR merge-ready until it lands — subscribe to its activity and, on each CI failure, review comment, or merge conflict, decide whether to fix it, escalate it, or skip. Invoke as /babysitting-pr <owner/repo#N or PR URL> when you want a PR watched hands-off through to merge. Drives the loop and delegates each fix; it does not re-implement review-comment or CI-fix logic. Not a blind auto-merger — it escalates ambiguous or architecturally significant changes and stops on request. Launched on request: invoke it when the user explicitly asks for a specific PR to be watched, babysat, or kept merge-ready — never on your own initiative."
+description: "Keep one open PR merge-ready until it lands — subscribe to its activity and, on each CI failure, review comment, or merge conflict, decide whether to fix it, escalate it, or skip. Invoke as /babysitting-pr <owner/repo#N or PR URL> when you want a PR watched hands-off through to merge. Drives the loop and delegates each fix; it does not re-implement review-comment or CI-fix logic. Not a blind auto-merger — it escalates ambiguous or architecturally significant changes and stops on request. Use when the user asks for a specific PR to be watched, babysat, or kept merge-ready — including when that intent is clear from the request; when watching was not part of the request, offer it rather than starting it."
 argument-hint: "<owner/repo#N or PR URL to babysit>"
 ---
 
@@ -30,9 +30,9 @@ Then set up **two** wake sources, because neither alone is enough:
   **new pushes**, and **merge-conflict transitions**. Re-read status, CI, and
   mergeability; if nothing changed, **re-arm silently** — no ping, no comment.
 
-If the harness has neither tool (Claude Code does not — verified live 2026-07-04),
-map them to a persistent Monitor poll-stream for PR-state deltas and an hourly
-CronCreate check-in; tear both down at wind-down. Seed the monitor's baseline from
+Check what the active harness actually exposes before arming. If it lacks either
+tool, map the missing one to a persistent Monitor poll-stream for PR-state deltas
+and an hourly CronCreate check-in; tear both down at wind-down. Seed the monitor's baseline from
 the arm-time snapshot, and build that seed with the **same extraction code the loop
 runs**, including paginated comment/review counts aggregated across pages; details are
 in `references/watch-arming.md`.

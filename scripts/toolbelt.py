@@ -16,6 +16,7 @@ import os
 import pathlib
 import platform
 import re
+import shlex
 import shutil
 import stat
 import subprocess
@@ -301,7 +302,6 @@ def copy_managed_dir(
     *,
     force: bool,
     dry_run: bool,
-    ignore: shutil.IgnorePattern | None = None,
 ) -> None:
     destination_exists = destination.exists() or destination.is_symlink()
     if destination_exists and not force:
@@ -318,7 +318,7 @@ def copy_managed_dir(
     backup = temp_root / "previous"
     moved_previous = False
     try:
-        shutil.copytree(source, candidate, ignore=ignore)
+        shutil.copytree(source, candidate)
         marker = {**marker_payload(source), "files": managed_dir_snapshot(candidate)}
         (candidate / MANAGED_MARKER).write_text(
             json.dumps(marker, indent=2) + "\n", encoding="utf-8"
@@ -387,11 +387,7 @@ def launcher_content() -> str:
     script = REPO / "scripts" / "toolbelt.py"
     if os.name == "nt":
         return f'@py -3 "{script}" %*\r\n'
-    return f'#!/bin/sh\nexec python3 {shlex_quote(str(script))} "$@"\n'
-
-
-def shlex_quote(value: str) -> str:
-    return "'" + value.replace("'", "'\"'\"'") + "'"
+    return f'#!/bin/sh\nexec python3 {shlex.quote(str(script))} "$@"\n'
 
 
 def parse_providers(value: str) -> tuple[str, ...]:
@@ -1092,6 +1088,9 @@ def main(argv: list[str] | None = None) -> int:
         argv = sys.argv[1:]
     if argv == ["--selftest"]:
         return selftest()
+    # These commands are dispatched before argparse so REMAINDER-style flags
+    # (including --help) reach the target script untouched; their argparse
+    # subparsers exist only so `agentic --help` lists them.
     forwarded = {
         "dashboard": REPO / "scripts" / "dashboard" / "dashboard.py",
         "cmux-fleet": REPO / "scripts" / "cmux" / "spawn_fleet.py",
@@ -1124,12 +1123,6 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "gate":
             return run_repo_script(REPO / "scripts" / "ci" / "check_all.py", [])
-        if args.command == "dashboard":
-            return run_repo_script(REPO / "scripts" / "dashboard" / "dashboard.py", args.args)
-        if args.command == "cmux-fleet":
-            return run_repo_script(REPO / "scripts" / "cmux" / "spawn_fleet.py", args.args)
-        if args.command == "cmux-send":
-            return run_repo_script(REPO / "scripts" / "cmux" / "send_task.py", args.args)
         if args.command == "cmux-manifest":
             return run_repo_script(
                 REPO / "scripts" / "cmux" / "spawn_fleet.py",

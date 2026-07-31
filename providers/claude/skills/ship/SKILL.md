@@ -1,6 +1,6 @@
 ---
 name: ship
-description: "Open an evidence-bearing PR for the current branch — re-runs the repo's gate and self-review at the exact HEAD being shipped, refuses on red/stale/self-caught findings, creates the PR with per-command proof in the body, and requests the Codex review. Invoke as /ship after /commit lands the work. Not /commit (landing changesets) and not /babysitting-pr (watching a PR that already exists). Launched on request: invoke it when the user explicitly asks to ship, open a PR, or chains it after /commit in the same message — never on your own initiative."
+description: "Open an evidence-bearing PR for the current branch — re-runs the repo's gate and self-review at the exact HEAD being shipped, refuses on red/stale/self-caught findings, creates the PR with per-command proof in the body, and requests the Codex review. Invoke as /ship after /commit lands the work. Not /commit (landing changesets) and not /babysitting-pr (watching a PR that already exists). Use when the user asks to ship, push, or open a PR — including when that intent is clear from the request (\"land this and open a PR\"); when shipping was not part of the request, offer it rather than doing it."
 ---
 
 
