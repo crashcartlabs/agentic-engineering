@@ -89,6 +89,26 @@ def scan_text(
     return errors
 
 
+def scan_path(
+    rel: str, extra: tuple[str, ...], skip_labels: frozenset[str] = frozenset()
+) -> list[str]:
+    """Apply the denylist to the repository-relative path itself.
+
+    Generation and installation publish filenames just like contents, so a
+    private token in a path is sediment even when the file body is clean.
+    """
+    errors: list[str] = []
+    for label, pattern in DENYLIST:
+        if label in skip_labels:
+            continue
+        if pattern.search(rel):
+            errors.append(f"{rel}: path itself matches {label} (pattern: {pattern.pattern})")
+    for token in extra:
+        if token in rel:
+            errors.append(f"{rel}: path itself matches an AGENTIC_SEDIMENT_EXTRA token")
+    return errors
+
+
 def shared_pipeline_errors(contents: dict[str, str]) -> list[str]:
     if len(set(contents.values())) > 1:
         names = ", ".join(sorted(contents))
@@ -142,6 +162,15 @@ def selftest() -> int:
         failures.append("portability exemption did not suppress a home-path hit")
     if not scan_text("fixture.md", "pushed to github.com/mjenkinsx0/private", (), portability_skips):
         failures.append("portability exemption wrongly suppressed a leak pattern")
+    if not scan_path("skills/demo/references/mjenkinsx0-private.md", ()):
+        failures.append("a private token in a filename was not flagged")
+    if scan_path("skills/demo/references/clean-reference.md", ()):
+        failures.append("a clean path was wrongly flagged")
+    hits = scan_path("skills/demo/hunter2-notes.md", ("hunter2",))
+    if not hits:
+        failures.append("an extra-literal token in a filename was not flagged")
+    elif any("AGENTIC_SEDIMENT_EXTRA" not in hit for hit in hits):
+        failures.append("path extra-token match did not use the non-echoing message")
     if shared_pipeline_errors({"a": "same", "b": "same"}):
         failures.append("identical shared-pipeline copies were flagged")
     if not shared_pipeline_errors({"a": "same", "b": "different"}):
@@ -180,10 +209,11 @@ def main() -> int:
     extra = extra_literals()
     shared: dict[str, str] = {}
     for path, skip_labels in scan_files():
+        rel = path.relative_to(REPO).as_posix()
+        errors.extend(scan_path(rel, extra, skip_labels))
         text = read_text_or_none(path)
         if text is None:
             continue
-        rel = path.relative_to(REPO).as_posix()
         errors.extend(scan_text(rel, text, extra, skip_labels))
         if path.name == SHARED_BASENAME:
             shared[rel] = text

@@ -379,6 +379,18 @@ def validate_scenario_shape(path: pathlib.Path, scenario: dict) -> None:
         isinstance(k, str) and isinstance(v, str) for k, v in files.items()
     ):
         raise EvalError(f"{path}: fixture.files must map string paths to string contents")
+    reserved = (".claude/", ".claude\\", ".eval-bin/", ".eval-bin\\")
+    write_paths = list(files) + [
+        step["write"]["path"]
+        for step in fixture.get("setup", [])
+        if isinstance(step, dict) and isinstance(step.get("write"), dict)
+        and isinstance(step["write"].get("path"), str)
+    ]
+    for rel in write_paths:
+        if rel.startswith(reserved) or rel in (".claude", ".eval-bin"):
+            # Harness-reserved locations: a scenario overwriting the injected
+            # skill would make the recorded adapter digest a lie.
+            raise EvalError(f"{path}: fixture path {rel!r} collides with a harness-reserved directory")
     if not isinstance(fixture.get("git", False), bool):
         raise EvalError(f"{path}: fixture.git must be a boolean")
     shadow = fixture.get("shadow_commands", [])
@@ -506,14 +518,18 @@ def run_scenario(
             and judge_config.get("rubric")
             and (judge_config.get("enabled") or judge_config.get("required"))
         ):
-            judge_result = run_provider(
-                provider,
-                judge_prompt(scenario, result.transcript),
-                root,
-                timeout=timeout,
-                bypass_permissions=False,
-                fake_script=fake_script,
-            )
+            # The judge runs in a fresh empty directory, never the fixture: the
+            # evaluated agent may have planted CLAUDE.md or project skills there
+            # that would load into the judge's session and steer the verdict.
+            with tempfile.TemporaryDirectory(prefix="agentic-eval-judge-") as judge_raw:
+                judge_result = run_provider(
+                    provider,
+                    judge_prompt(scenario, result.transcript),
+                    pathlib.Path(judge_raw),
+                    timeout=timeout,
+                    bypass_permissions=False,
+                    fake_script=fake_script,
+                )
             judge_full_transcript = judge_result.transcript
             judge_record = {
                 "verdict": parse_judge_verdict(judge_result.transcript),
