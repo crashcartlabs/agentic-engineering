@@ -167,15 +167,24 @@ def verify_release_tag(repo: pathlib.Path, ref: str, version: str) -> None:
 
 
 def publish(remote: str, ref: str, dry_run: bool, today: str) -> int:
-    short_sha = resolve_ref(ref)
+    # Pin one immutable commit up front: a symbolic ref could advance between
+    # archiving and tag verification, letting the preflight pass on a commit the
+    # archive does not contain. Everything below uses this OID, never the ref.
+    resolved = subprocess.run(
+        ["git", "rev-parse", f"{ref}^{{commit}}"], cwd=REPO, capture_output=True, text=True
+    )
+    if resolved.returncode:
+        raise SystemExit(f"error: cannot resolve ref {ref!r}: {resolved.stderr.strip()}")
+    oid = resolved.stdout.strip()
+    short_sha = resolve_ref(oid)
     with tempfile.TemporaryDirectory(prefix="agentic-publish-") as raw:
         workdir = pathlib.Path(raw)
-        tree = build_snapshot(ref, workdir, today)
+        tree = build_snapshot(oid, workdir, today)
         if not dry_run:
             # Validate the exported tree itself — the working tree may sit on a
             # different version than the ref being published.
             version = verify_release_consistency(tree)
-            verify_release_tag(REPO, ref, version)
+            verify_release_tag(REPO, oid, version)
         name, email = snapshot_identity()
         identity = ["-c", f"user.name={name}", "-c", f"user.email={email}"]
         run(["git", "init", "-q", "-b", "main"], cwd=tree)
@@ -233,15 +242,24 @@ def selftest() -> int:
     if set(files) != set(expected):
         failures.append(f"reset file set changed: {sorted(files)} != {sorted(expected)}")
 
-    default_name, default_email = snapshot_identity()
-    if "@" not in default_email or "noreply" not in default_email:
-        failures.append("default snapshot identity is not a non-personal noreply address")
-    os.environ["AGENTIC_PUBLISH_AUTHOR_NAME"] = "Custom Publisher"
+    # Clear the supported overrides while testing defaults: a maintainer's
+    # legitimate AGENTIC_PUBLISH_* configuration must not fail the gate.
+    saved_overrides = {
+        key: os.environ.pop(key, None)
+        for key in ("AGENTIC_PUBLISH_AUTHOR_NAME", "AGENTIC_PUBLISH_AUTHOR_EMAIL")
+    }
     try:
+        default_name, default_email = snapshot_identity()
+        if "@" not in default_email or "noreply" not in default_email:
+            failures.append("default snapshot identity is not a non-personal noreply address")
+        os.environ["AGENTIC_PUBLISH_AUTHOR_NAME"] = "Custom Publisher"
         if snapshot_identity()[0] != "Custom Publisher":
             failures.append("snapshot identity env override was ignored")
     finally:
         os.environ.pop("AGENTIC_PUBLISH_AUTHOR_NAME", None)
+        for key, value in saved_overrides.items():
+            if value is not None:
+                os.environ[key] = value
 
     with tempfile.TemporaryDirectory(prefix="publish-consistency-selftest-") as raw:
         tree = pathlib.Path(raw)

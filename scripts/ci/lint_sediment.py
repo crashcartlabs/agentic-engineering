@@ -179,9 +179,12 @@ def selftest() -> int:
 
     with tempfile.TemporaryDirectory(prefix="sediment-selftest-") as raw:
         binary = pathlib.Path(raw) / "asset.bin"
-        binary.write_bytes(b"\xff\xfe\x00binary")
-        if read_text_or_none(binary, repo=pathlib.Path(raw)) is not None:
-            failures.append("binary file was not skipped by the text reader")
+        binary.write_bytes(b"\xff\xfepushed to github.com/mjenkinsx0/private\x00")
+        fallback = read_text_or_none(binary, repo=pathlib.Path(raw))
+        if fallback is None:
+            failures.append("binary file was exempted instead of byte-scanned")
+        elif not scan_text("asset.bin", fallback, ()):
+            failures.append("sediment embedded in a binary asset was not flagged")
     if failures:
         print("sediment lint selftest: FAIL")
         for failure in failures:
@@ -192,16 +195,20 @@ def selftest() -> int:
 
 
 def read_text_or_none(path: pathlib.Path, repo: pathlib.Path = REPO) -> str | None:
-    """Selected-source text, or None for absent or undecodable (binary) files.
+    """Selected-source text, or a byte-preserving fallback for non-UTF-8 files.
 
-    Skills may legitimately carry binary assets (provider generation copies them
-    with read_bytes); the sediment scan is a text lint, so a binary file is
-    skipped rather than crashing the gate as a broken harness.
+    Skills may carry binary assets (provider generation copies them verbatim), and
+    those assets are published like any other file — so instead of exempting their
+    contents, undecodable files are re-read as latin-1, which maps every byte 1:1
+    and lets the ASCII denylist patterns still match embedded sediment.
     """
     try:
         return gittracked.tracked_text(path, repo=repo)
     except UnicodeDecodeError:
-        return None
+        try:
+            return gittracked.tracked_text(path, repo=repo, encoding="latin-1")
+        except (UnicodeDecodeError, OSError):
+            return None
 
 
 def main() -> int:

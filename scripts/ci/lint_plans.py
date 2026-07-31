@@ -66,7 +66,9 @@ CODE_SPAN = re.compile(r"`[^`]+`")
 # Per-phase TDD contract (plan SKILL.md "Mark each phase's TDD discipline"): every
 # implementation phase carries exactly one `**TDD:**` line reading `strict` or
 # `none — <reason>`, so the executor never guesses the testing contract.
-PHASE_HEADING = re.compile(r"^###\s+Phase\b")
+# The full canonical shape — `### Phase <digits> — <name>` — matching what
+# phase-driven tooling parses; anything looser is a noncanonical-heading error.
+PHASE_HEADING = re.compile(r"^###\s+Phase\s+\d+\s+—\s+\S")
 # Any other ATX heading (or indented variant) naming a Phase is noncanonical: it
 # would silently escape the per-phase TDD contract, so it is an error, not ignored.
 PHASE_HEADING_ANY = re.compile(r"^\s*#{1,6}\s+Phase\b")
@@ -333,6 +335,10 @@ LEFTOVER_FIXTURE = """\
 #### Phase 3 — wrong heading level
 
 - [ ] 3.1 <task>
+
+### Phase banana
+
+- [ ] 4.1 <task>
 
     ``` an indented code line, not a fence opener
 

@@ -219,10 +219,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\n{name} crashed: {exc!r}")
     if args.quick:
         # Adapter drift is otherwise caught only inside the (slow) toolbelt selftest,
-        # so quick mode runs the cheap generation check directly.
+        # so quick mode runs the cheap generation check directly. Exit tiering
+        # matches the gate contract: 1 is a finding, anything else is a broken check.
         try:
-            if run_generate_check():
+            generate_status = run_generate_check()
+            if generate_status == 1:
                 check_failed = True
+            elif generate_status:
+                crashed = True
+                print(f"\ngenerate --check exited {generate_status} (broken check, not a finding)")
         except Exception as exc:  # noqa: BLE001 - a crashing check is itself the finding
             crashed = True
             print(f"\ngenerate --check crashed: {exc!r}")
