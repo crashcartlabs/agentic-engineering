@@ -97,7 +97,9 @@ def check_plan(name: str, text: str, errors: list[str]) -> None:
         # `**TDD:**` line or `### Phase` heading must never satisfy (or trip)
         # the phase contract. Track the opener's delimiter — a ``` block that
         # *shows* tilde syntax must not be closed by the inner ~~~ line.
-        fence_match = re.match(r"\s*(`{3,}|~{3,})", line)
+        # At most three leading spaces: four-plus is an indented code block in
+        # CommonMark, not a fence opener.
+        fence_match = re.match(r" {0,3}(`{3,}|~{3,})", line)
         if fence_match:
             marker = fence_match.group(1)
             if fence is None:
@@ -321,6 +323,12 @@ LEFTOVER_FIXTURE = """\
 
 - [ ] 3.1 <task>
 
+    ``` an indented code line, not a fence opener
+
+### Phase 5 — after indented code
+
+- [ ] 5.1 <task>
+
 ## Risks & rollback
 
 N/A — <one-line reason>
@@ -377,6 +385,7 @@ LEFTOVER_EXPECTED = (
     "has no **TDD:** marker",
     "**TDD:** marker must be 'strict' or 'none",
     "noncanonical phase heading",
+    "Phase 5 — after indented code' has no **TDD:** marker",
 )
 
 

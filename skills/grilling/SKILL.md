@@ -35,8 +35,10 @@ rewrite the artifact, and not to implement anything.
 The grilling is done when the user confirms shared understanding — every branch of
 the design tree visited, no open question left that would change the build — or the
 user ends it. Close by replaying the settled decisions and any accepted risks in
-your own words for a final confirmation, and offer the natural next step
-(`/spec` or `/plan`) without auto-running it.
+your own words for a final confirmation, then offer the next step **chosen from the
+artifact's state** — `/spec` for a still-foggy idea, `/plan` to write or revise the
+plan, or `/execute <plan-file>` when the grilled artifact is an already-approved
+plan that survived intact — always an offer, never an auto-run.
 
 ## Hard rules
 

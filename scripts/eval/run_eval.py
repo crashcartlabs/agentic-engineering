@@ -332,6 +332,8 @@ def load_scenario_file(path: pathlib.Path, skill: str) -> dict:
         scenario = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise EvalError(f"{path}: malformed scenario JSON: {exc}") from exc
+    if not isinstance(scenario, dict):
+        raise EvalError(f"{path}: scenario root must be a JSON object")
     if scenario.get("schemaVersion") != 1:
         raise EvalError(f"{path}: unsupported schemaVersion {scenario.get('schemaVersion')!r}")
     for required in ("skill", "scenario", "prompt", "checks"):
@@ -774,6 +776,14 @@ def selftest() -> int:
             pass
         else:
             failures.append("malformed scenario JSON did not raise EvalError")
+        list_root = base / "list-root.json"
+        list_root.write_text("[]", encoding="utf-8")
+        try:
+            load_scenario_file(list_root, "bad")
+        except EvalError:
+            pass
+        else:
+            failures.append("a non-object scenario root did not raise EvalError")
         foreign = base / "expected.json"
         foreign.write_text(
             json.dumps(

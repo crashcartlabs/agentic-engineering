@@ -117,7 +117,14 @@ def verify_release_tag(repo: pathlib.Path, ref: str, version: str) -> None:
 def publish(remote: str, ref: str, dry_run: bool, today: str) -> int:
     short_sha = resolve_ref(ref)
     if not dry_run:
-        version = json.loads((REPO / "toolbelt.json").read_text(encoding="utf-8"))["version"]
+        # Read the version from the exported ref itself — the working tree may
+        # sit on a different (e.g. newer) version than the ref being published.
+        show = subprocess.run(
+            ["git", "show", f"{ref}:toolbelt.json"], cwd=REPO, capture_output=True, text=True
+        )
+        if show.returncode:
+            raise SystemExit(f"error: cannot read toolbelt.json from {ref!r}: {show.stderr.strip()}")
+        version = json.loads(show.stdout)["version"]
         verify_release_tag(REPO, ref, version)
     with tempfile.TemporaryDirectory(prefix="agentic-publish-") as raw:
         workdir = pathlib.Path(raw)
