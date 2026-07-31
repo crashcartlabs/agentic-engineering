@@ -246,6 +246,10 @@ def run_check(check: dict, root: pathlib.Path, transcript: str) -> tuple[bool, s
             # A hung check command is a failed check with evidence, never a
             # traceback that discards the run's record.
             return False, f"{label} (timed out)"
+        except OSError as exc:
+            # Same contract for a tool missing on the eval host: record the
+            # failed check rather than crashing the run.
+            return False, f"{label} (could not launch: {exc})"
         if proc.returncode != check.get("expect_exit", 0):
             return False, f"{label} (exit {proc.returncode})"
         if check.get("expect_empty_output") and proc.stdout.strip():

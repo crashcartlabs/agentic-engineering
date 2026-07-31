@@ -67,6 +67,9 @@ CODE_SPAN = re.compile(r"`[^`]+`")
 # implementation phase carries exactly one `**TDD:**` line reading `strict` or
 # `none — <reason>`, so the executor never guesses the testing contract.
 PHASE_HEADING = re.compile(r"^###\s+Phase\b")
+# Any other ATX heading (or indented variant) naming a Phase is noncanonical: it
+# would silently escape the per-phase TDD contract, so it is an error, not ignored.
+PHASE_HEADING_ANY = re.compile(r"^\s*#{1,6}\s+Phase\b")
 SECTION_HEADING = re.compile(r"^#{2,3}\s")
 TDD_LINE = re.compile(r"^\*\*TDD:\*\*\s*(.*)$")
 TDD_VALID = re.compile(r"^(strict|none\s*[—-]\s*\S.*)$")
@@ -99,12 +102,21 @@ def check_plan(name: str, text: str, errors: list[str]) -> None:
             marker = fence_match.group(1)
             if fence is None:
                 fence = (marker[0], len(marker))
-            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+            elif marker[0] == fence[0] and len(marker) >= fence[1] and line.strip() == marker:
+                # A closing fence carries no info string (CommonMark) — an inner
+                # ```python opener shown inside an outer ```markdown example is
+                # content, not the outer block's close.
                 fence = None
         elif fence is None:
             if PHASE_HEADING.match(line):
                 close_phase()
                 phase = (line.strip(), lineno)
+            elif PHASE_HEADING_ANY.match(line):
+                close_phase()
+                errors.append(
+                    f"{name}:{lineno}: noncanonical phase heading {line.strip()!r} "
+                    "— use an unindented '### Phase N — <name>' so the TDD contract applies"
+                )
             elif SECTION_HEADING.match(line):
                 close_phase()
             elif phase is not None:
@@ -241,6 +253,12 @@ An outer backtick block that itself shows tilde syntax:
 The inner tildes must not close the outer fence.
 ```
 
+```markdown
+An inner same-delimiter opener with an info string is content, not a close:
+```python
+**TDD:** whenever convenient
+```
+
 ### Phase 2 — regenerate artifacts
 
 - [x] 2.1 rerun the generator
@@ -299,6 +317,10 @@ LEFTOVER_FIXTURE = """\
 **TDD:** whenever convenient
 **Validation:** <...>
 
+#### Phase 3 — wrong heading level
+
+- [ ] 3.1 <task>
+
 ## Risks & rollback
 
 N/A — <one-line reason>
@@ -354,6 +376,7 @@ LEFTOVER_EXPECTED = (
     "unfilled template token '<who can write/read/replace inputs, paths, configs, pidfiles, temp files>'",
     "has no **TDD:** marker",
     "**TDD:** marker must be 'strict' or 'none",
+    "noncanonical phase heading",
 )
 
 
