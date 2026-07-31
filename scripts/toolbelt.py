@@ -222,6 +222,16 @@ def validate_source(*, check_generated: bool = True) -> list[str]:
         manifest_versions[rel] = version
     if len(set(manifest_versions.values())) > 1:
         errors.append(f"manifest version mismatch: {manifest_versions}")
+    elif manifest_versions:
+        # The changelog is public consumers' only cross-release diff
+        # (docs/publishing.md), so a synchronized version without an entry must
+        # not be publishable.
+        release = next(iter(manifest_versions.values()))
+        changelog = REPO / "CHANGELOG.md"
+        if not changelog.is_file():
+            errors.append("CHANGELOG.md is missing")
+        elif f"## [{release}]" not in changelog.read_text(encoding="utf-8"):
+            errors.append(f"CHANGELOG.md has no entry for version {release}")
     return errors
 
 

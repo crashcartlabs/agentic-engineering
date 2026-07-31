@@ -87,15 +87,21 @@ def check_plan(name: str, text: str, errors: list[str]) -> None:
             errors.append(f"{name}:{phase[1]}: {phase[0]!r} has {phase_tdd} **TDD:** markers; expected one")
         phase, phase_tdd = None, 0
 
-    in_fence = False
+    fence: tuple[str, int] | None = None  # (delimiter char, opener length) of the open fence
     for i, line in enumerate(text.splitlines()):
         lineno = i + 1
         # Fenced code blocks are examples, not plan structure: a fenced
         # `**TDD:**` line or `### Phase` heading must never satisfy (or trip)
-        # the phase contract. Both fence syntaxes count.
-        if line.lstrip().startswith(("```", "~~~")):
-            in_fence = not in_fence
-        elif not in_fence:
+        # the phase contract. Track the opener's delimiter — a ``` block that
+        # *shows* tilde syntax must not be closed by the inner ~~~ line.
+        fence_match = re.match(r"\s*(`{3,}|~{3,})", line)
+        if fence_match:
+            marker = fence_match.group(1)
+            if fence is None:
+                fence = (marker[0], len(marker))
+            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                fence = None
+        elif fence is None:
             if PHASE_HEADING.match(line):
                 close_phase()
                 phase = (line.strip(), lineno)
@@ -226,6 +232,14 @@ The tilde fence syntax is an example container too:
 **TDD:** whenever convenient
 ### Phase 98 — also not a real phase
 ~~~
+
+```markdown
+An outer backtick block that itself shows tilde syntax:
+~~~
+**TDD:** whenever convenient
+~~~
+The inner tildes must not close the outer fence.
+```
 
 ### Phase 2 — regenerate artifacts
 

@@ -135,7 +135,14 @@ def build_fixture(scenario: dict, root: pathlib.Path) -> None:
         if argv and argv[0] == "git":
             run_git(root, *argv[1:], check=check)
             continue
-        proc = subprocess.run(argv, cwd=root, capture_output=True, text=True, timeout=120, check=False)
+        try:
+            proc = subprocess.run(
+                argv, cwd=root, capture_output=True, text=True, timeout=120, check=False
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            # Missing tools and hangs during fixture setup are configuration/
+            # environment problems — the documented exit-2 path, not a traceback.
+            raise EvalError(f"setup step could not run ({' '.join(argv)}): {exc}") from exc
         if check and proc.returncode:
             raise EvalError(f"setup step failed ({' '.join(argv)}): {(proc.stderr or proc.stdout).strip()}")
 
@@ -151,6 +158,10 @@ def build_shadow_commands(root: pathlib.Path, names: list[str]) -> pathlib.Path:
     bin_dir = root / ".eval-bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
     for name in names:
+        # Bare executable names only: a path separator or dot component would
+        # write stubs outside the throwaway fixture (e.g. "/tmp/tool").
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", name) or name in (".", ".."):
+            raise EvalError(f"shadow_commands entry must be a bare executable name: {name!r}")
         posix_stub = bin_dir / name
         posix_stub.write_text(
             f'#!/bin/sh\necho "{name}: command unavailable in this eval fixture" >&2\nexit 127\n',
@@ -327,6 +338,11 @@ def validate_scenario_shape(path: pathlib.Path, scenario: dict) -> None:
     shadow = fixture.get("shadow_commands", [])
     if not isinstance(shadow, list) or not all(isinstance(n, str) for n in shadow):
         raise EvalError(f"{path}: fixture.shadow_commands must be a list of strings")
+    for name in shadow:
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", name) or name in (".", ".."):
+            raise EvalError(
+                f"{path}: shadow_commands entry must be a bare executable name: {name!r}"
+            )
     for i, step in enumerate(fixture.get("setup", [])):
         argv = step.get("argv") if isinstance(step, dict) and "write" not in step else None
         if isinstance(step, dict) and "write" in step:
@@ -346,6 +362,13 @@ def validate_scenario_shape(path: pathlib.Path, scenario: dict) -> None:
                 f"{path}: checks[{i}] must declare a known type "
                 f"({', '.join(sorted(CHECK_REQUIRED_FIELDS))})"
             )
+        if check["type"] == "command":
+            if not isinstance(check.get("expect_exit", 0), int):
+                raise EvalError(f"{path}: checks[{i}].expect_exit must be an integer")
+            if not isinstance(check.get("expect_empty_output", False), bool):
+                raise EvalError(f"{path}: checks[{i}].expect_empty_output must be a boolean")
+            if check.get("expect_output") is not None and not isinstance(check["expect_output"], str):
+                raise EvalError(f"{path}: checks[{i}].expect_output must be a string or null")
         for field in CHECK_REQUIRED_FIELDS[check["type"]]:
             value = check.get(field)
             if field == "argv":
@@ -798,6 +821,13 @@ def selftest() -> int:
             failures.append("an unjudged judge-required scenario was declared promotion-ready")
         if not promotion_ready([green, judged], 2)[0]:
             failures.append("a fully green, fully judged run was not promotion-ready")
+
+        try:
+            build_shadow_commands(base / "escape-fixture", ["/tmp/tool"])
+        except EvalError:
+            pass
+        else:
+            failures.append("absolute shadow command name was not rejected")
 
         symlink_dir = base / "symlink-fixture"
         symlink_dir.mkdir()
