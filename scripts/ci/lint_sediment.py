@@ -9,10 +9,12 @@ lands in shared content, so neutrality is enforced rather than re-argued in revi
 
 Two checks:
 
-1. Denylist scan over tracked `skills/` and `agents/` files (excluding each skill's
-   `tests.md` run-evidence and the explicitly machine-specific skills in
-   EXEMPT_SKILLS). The tracked patterns are deliberately generic so no private
-   token is itself republished by this file; exact private strings belong in the
+1. Denylist scan over tracked `skills/` and `agents/` files — including each
+   skill's `tests.md`, because generation and installation copy entire skill
+   directories, so run evidence travels to other machines exactly like skill
+   bodies do (only the explicitly machine-specific skills in EXEMPT_SKILLS are
+   skipped). The tracked patterns are deliberately generic so no private token is
+   itself republished by this file; exact private strings belong in the
    `AGENTIC_SEDIMENT_EXTRA` env var (comma-separated literals, set as a CI secret
    where needed) and are never echoed on a match.
 2. Identity check: every `skills/*/references/shared-pipeline.md` copy must be
@@ -46,7 +48,7 @@ DENYLIST: tuple[tuple[str, re.Pattern[str]], ...] = (
     # First character of a real username — [A-Za-z0-9_] — but not `<`, so doc
     # placeholders like /Users/<you> stay legal while /Users/Alice is caught.
     ("hardcoded macOS home path", re.compile(r"/Users/[A-Za-z0-9_]")),
-    ("hardcoded Windows home path", re.compile(r"C:\\Users\\", re.IGNORECASE)),
+    ("hardcoded Windows home path", re.compile(r"[A-Za-z]:[/\\]Users[/\\]")),
     ("this-repo gate command", re.compile(r"scripts/ci/check_all\.py")),
     ("internal milestone reference", re.compile(r"\bM2-\d\d\b")),
 )
@@ -85,8 +87,6 @@ def scan_files() -> list[pathlib.Path]:
             parts = path.relative_to(REPO).parts
             if parts[0] == "skills" and len(parts) > 1 and parts[1] in EXEMPT_SKILLS:
                 continue
-            if path.name == "tests.md":
-                continue
             out.append(path)
     return out
 
@@ -99,6 +99,7 @@ def selftest() -> int:
         "read /Users/someone/code/app",
         "read /Users/Alice/code/app",
         "read C:\\Users\\someone\\code\\app",
+        "read D:/Users/Alice/repo",
         "the gate is python3 scripts/ci/check_all.py",
         "revisit the M2-07 checklist",
     )

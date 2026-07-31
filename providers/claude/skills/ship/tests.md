@@ -16,9 +16,9 @@ self-review gate dogfooded on the bake-off branches.
 **Input:** A feature branch with committed work ahead of `main`, clean tree, no
 existing PR (live: `claude/item9-friction-cuts` → a real PR, and three more alongside it).
 
-**Expected output:** Gate discovered (`python3 scripts/ci/check_all.py` plus the CI
-secret scan — trufflehog, stdout suppressed, exit-code gated) and run at a recorded
-SHA; exit 0; `/code-audit` runs on the branch diff; `/security-audit` either runs
+**Expected output:** Gate discovered (the repo's full PR-validation command set — in
+that live run, the aggregate lint gate plus the CI secret scan: trufflehog, stdout
+suppressed, exit-code gated) and run at a recorded SHA; exit 0; `/code-audit` runs on the branch diff; `/security-audit` either runs
 on security-relevant diffs or is explicitly skipped for passive docs-only diffs;
 `/skill-safety-scan` runs when a skill changed; branch pushed with tip == evidence
 SHA; `gh pr create` with a body whose Verification section carries the captured

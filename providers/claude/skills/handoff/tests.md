@@ -18,7 +18,7 @@ create `handoffs/`, and write `handoff-<slug>-<date>.md`.
 
 **Verify (exercised on macOS):**
 - `git rev-parse --show-toplevel` →
-  `/Users/you/code/app-worktrees/session-worktree-b`
+  `/Users/<you>/code/app-worktrees/session-worktree-b`
 - live file written to
   `handoffs/handoff-cmux-session-worktree-b-<date>.md`
 - `git check-ignore handoffs/handoff-cmux-session-worktree-b-<date>.md`

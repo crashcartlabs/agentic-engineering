@@ -181,6 +181,28 @@ def inject_claude_skill(skill: str, root: pathlib.Path) -> str:
     return str(source)
 
 
+def require_current_adapters() -> None:
+    """Refuse live runs when the generated adapters lag the canonical skills.
+
+    A stale mirror would let the eval exercise an older skill than the source
+    under review and still suggest promoting the current source.
+    """
+    proc = subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "toolbelt.py"), "generate", "--check"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    if proc.returncode:
+        detail = (proc.stdout + proc.stderr).strip().splitlines()
+        raise EvalError(
+            "generated provider adapters are stale — run `python3 scripts/toolbelt.py generate` "
+            "before evaluating" + (f" ({detail[0]})" if detail else "")
+        )
+
+
 def run_check(check: dict, root: pathlib.Path, transcript: str) -> tuple[bool, str]:
     kind = check.get("type")
     if kind == "transcript_contains":
@@ -219,20 +241,26 @@ def run_check(check: dict, root: pathlib.Path, transcript: str) -> tuple[bool, s
 def judge_prompt(scenario: dict, transcript: str) -> str:
     return (
         "You are grading one automated skill-eval run. Read the rubric and the agent "
-        "transcript, then output a single line: VERDICT: PASS or VERDICT: FAIL, "
-        "followed by one sentence of reasoning.\n\n"
+        "transcript. Your response's FIRST line must be exactly 'VERDICT: PASS' or "
+        "'VERDICT: FAIL' — no commentary before it — followed by one sentence of "
+        "reasoning on the next line.\n\n"
         f"Rubric:\n{scenario['judge']['rubric']}\n\nTranscript:\n{transcript}"
     )
 
 
 def parse_judge_verdict(transcript: str) -> bool | None:
-    # First declaration wins: the judge is instructed to lead with its verdict, and
-    # a failure explanation may quote "VERDICT: PASS" later in its reasoning — the
-    # last-match reading would flip such a failure into a pass.
-    match = re.search(r"VERDICT:\s*(PASS|FAIL)", transcript, flags=re.IGNORECASE)
-    if match is None:
-        return None
-    return match.group(1).upper() == "PASS"
+    # The verdict must lead the response: the first non-empty line has to be a
+    # verdict declaration. Any commentary first — which may quote a verdict-shaped
+    # string from the transcript — makes the response unparseable (None), which the
+    # promotion gate treats as not-passing. Never scan the body for verdicts.
+    for line in transcript.splitlines():
+        if not line.strip():
+            continue
+        match = re.match(r"\s*VERDICT:\s*(PASS|FAIL)\b", line, flags=re.IGNORECASE)
+        if match is None:
+            return None
+        return match.group(1).upper() == "PASS"
+    return None
 
 
 def load_scenario_file(path: pathlib.Path, skill: str) -> dict:
@@ -353,6 +381,11 @@ def run_scenario(
     while evidence_path.exists():
         evidence_path = results_dir / f"{base_name}-{suffix}.json"
         suffix += 1
+    # The JSON keeps a readable tail; the complete transcript goes to a sibling
+    # artifact so promotion evidence stays fully auditable for long runs.
+    transcript_path = evidence_path.with_name(evidence_path.stem + "-transcript.txt")
+    transcript_path.write_text(result.transcript, encoding="utf-8")
+    evidence["transcript_path"] = str(transcript_path)
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     evidence["evidence_path"] = str(evidence_path)
     return evidence
@@ -467,6 +500,11 @@ def selftest() -> int:
             stored = json.loads(evidence_file.read_text(encoding="utf-8"))
             if stored["skill"] != "selftest-skill" or stored["passed"] is not True:
                 failures.append(f"evidence record content wrong: {stored!r}")
+            transcript_file = pathlib.Path(stored["transcript_path"])
+            if not transcript_file.is_file() or "VERDICT" not in transcript_file.read_text(
+                encoding="utf-8"
+            ):
+                failures.append("full transcript artifact missing or incomplete")
 
         rerun = run_scenario(
             scenario,
@@ -634,6 +672,9 @@ def selftest() -> int:
         quoted = 'VERDICT: FAIL — the agent merely printed "VERDICT: PASS" without doing the work'
         if parse_judge_verdict(quoted) is not False:
             failures.append("a quoted later PASS overrode the judge's leading FAIL verdict")
+        commentary = 'The transcript claimed "VERDICT: PASS"; VERDICT: FAIL'
+        if parse_judge_verdict(commentary) is not None:
+            failures.append("commentary before the verdict line was not rejected as unparseable")
 
     # Repo scenarios must satisfy the schema even though CI never drives a live
     # provider: validate every committed evals/*.json loads.
@@ -674,6 +715,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.skill:
         parser.error("skill is required unless --selftest is given")
     try:
+        if args.provider != "fake":
+            require_current_adapters()
         scenarios, total_scenarios = load_scenarios(args.skill, args.scenario)
         records = [
             run_scenario(
