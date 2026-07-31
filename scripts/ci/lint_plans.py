@@ -87,22 +87,29 @@ def check_plan(name: str, text: str, errors: list[str]) -> None:
             errors.append(f"{name}:{phase[1]}: {phase[0]!r} has {phase_tdd} **TDD:** markers; expected one")
         phase, phase_tdd = None, 0
 
+    in_fence = False
     for i, line in enumerate(text.splitlines()):
         lineno = i + 1
-        if PHASE_HEADING.match(line):
-            close_phase()
-            phase = (line.strip(), lineno)
-        elif SECTION_HEADING.match(line):
-            close_phase()
-        elif phase is not None:
-            tdd = TDD_LINE.match(line)
-            if tdd:
-                phase_tdd += 1
-                if not TDD_VALID.match(tdd.group(1).strip()):
-                    errors.append(
-                        f"{name}:{lineno}: **TDD:** marker must be 'strict' or 'none — <reason>' "
-                        f"— got {tdd.group(1).strip()!r}"
-                    )
+        # Fenced code blocks are examples, not plan structure: a ```-quoted
+        # `**TDD:**` line or `### Phase` heading must never satisfy (or trip)
+        # the phase contract.
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence:
+            if PHASE_HEADING.match(line):
+                close_phase()
+                phase = (line.strip(), lineno)
+            elif SECTION_HEADING.match(line):
+                close_phase()
+            elif phase is not None:
+                tdd = TDD_LINE.match(line)
+                if tdd:
+                    phase_tdd += 1
+                    if not TDD_VALID.match(tdd.group(1).strip()):
+                        errors.append(
+                            f"{name}:{lineno}: **TDD:** marker must be 'strict' or 'none — <reason>' "
+                            f"— got {tdd.group(1).strip()!r}"
+                        )
         m = META_ROW.match(line)
         if m:
             field, value = m.group(1), m.group(2).strip()
@@ -207,6 +214,12 @@ reviews/<YYYY-MM-DD>-<plan-slug>.md under <git-common-dir>. A quoted token like
 
 **TDD:** strict
 **Validation:** run the test file.
+
+```markdown
+An example block quoting plan syntax — its markers are examples, not structure:
+**TDD:** whenever convenient
+### Phase 99 — not a real phase
+```
 
 ### Phase 2 — regenerate artifacts
 

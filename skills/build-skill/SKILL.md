@@ -115,10 +115,13 @@ meaning has a single source of truth; the body is as short as the task allows.
 ## Step 6 — Verify
 
 Run the ≥3 `tests.md` scenarios *through the skill* the way it will actually be
-invoked. Where `/dogfood` is available **and the skill already sits at its registered
-location** (`skills/<name>` — the sharpen-an-existing-skill path), that is the tool
-for this step: run `/dogfood <skill-name>` and let it drive the scenarios and record
-the verdicts. A **staged draft** (`staging/<name>`) is not registrable yet — `/dogfood`
+invoked — **every authored scenario, individually**: verification is per-scenario,
+and a pass that exercised only a subset is not complete evidence. Where `/dogfood`
+is available **and the skill already sits at its registered location**
+(`skills/<name>` — the sharpen-an-existing-skill path), run `/dogfood <skill-name>`
+instructing it to drive **each `tests.md` scenario** and record a per-scenario
+verdict; any scenario its pass did not run must still be replayed by hand before
+this step completes. A **staged draft** (`staging/<name>`) is not registrable yet — `/dogfood`
 resolves only live skills — so verify it by replaying each scenario against the
 skill's steps by hand, then run `/dogfood` immediately after Step 7's promotion as
 the confirming live pass. Same quality as your manual runs? Fix the skill, not the

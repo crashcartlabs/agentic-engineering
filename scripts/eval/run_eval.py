@@ -75,6 +75,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -212,8 +213,11 @@ def run_check(check: dict, root: pathlib.Path, transcript: str) -> tuple[bool, s
         target = fixture_path(root, check["path"])
         return target.exists(), f"file_exists {check['path']}"
     if kind == "file_absent":
-        target = fixture_path(root, check["path"])
-        return not target.exists(), f"file_absent {check['path']}"
+        fixture_path(root, check["path"])  # containment validation only
+        # Inspect the lexical path: a dangling symlink at the forbidden location
+        # is an artifact too, and resolve()+exists() would miss it.
+        target = root / check["path"]
+        return not (target.exists() or target.is_symlink()), f"file_absent {check['path']}"
     if kind == "file_contains":
         target = fixture_path(root, check["path"])
         if not target.is_file():
@@ -222,8 +226,15 @@ def run_check(check: dict, root: pathlib.Path, transcript: str) -> tuple[bool, s
         return found, f"file_contains {check['path']} ~ {check['pattern']!r}"
     if kind == "command":
         argv = check["argv"]
-        proc = subprocess.run(argv, cwd=root, capture_output=True, text=True, timeout=120, check=False)
         label = f"command {' '.join(argv)}"
+        try:
+            proc = subprocess.run(
+                argv, cwd=root, capture_output=True, text=True, timeout=120, check=False
+            )
+        except subprocess.TimeoutExpired:
+            # A hung check command is a failed check with evidence, never a
+            # traceback that discards the run's record.
+            return False, f"{label} (timed out)"
         if proc.returncode != check.get("expect_exit", 0):
             return False, f"{label} (exit {proc.returncode})"
         if check.get("expect_empty_output") and proc.stdout.strip():
@@ -452,9 +463,15 @@ def run_scenario(
     base_name = f"{date}-{scenario['skill']}-{scenario['scenario']}-{provider}"
     evidence_path = results_dir / f"{base_name}.json"
     suffix = 2
-    while evidence_path.exists():
-        evidence_path = results_dir / f"{base_name}-{suffix}.json"
-        suffix += 1
+    while True:
+        # O_EXCL reserves the name atomically, so two concurrent runs of the same
+        # scenario can never claim the same record and overwrite each other.
+        try:
+            os.close(os.open(evidence_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL))
+            break
+        except FileExistsError:
+            evidence_path = results_dir / f"{base_name}-{suffix}.json"
+            suffix += 1
     # The JSON keeps readable tails; the complete transcripts — provider and, when
     # run, judge — go to a sibling artifact so promotion evidence stays fully
     # auditable for long runs.
@@ -755,6 +772,17 @@ def selftest() -> int:
             failures.append("an unjudged judge-required scenario was declared promotion-ready")
         if not promotion_ready([green, judged], 2)[0]:
             failures.append("a fully green, fully judged run was not promotion-ready")
+
+        symlink_dir = base / "symlink-fixture"
+        symlink_dir.mkdir()
+        try:
+            (symlink_dir / "AGENTS.md").symlink_to("no-such-target")
+        except OSError:
+            pass  # unprivileged Windows cannot create symlinks; skip the pin there
+        else:
+            passed, _ = run_check({"type": "file_absent", "path": "AGENTS.md"}, symlink_dir, "")
+            if passed:
+                failures.append("file_absent treated a dangling symlink as absent")
 
         try:
             fixture_path(base, "../escape.txt")
