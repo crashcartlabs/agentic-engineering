@@ -50,6 +50,7 @@ DENYLIST: tuple[tuple[str, re.Pattern[str]], ...] = (
     # usernames are caught, on every platform's home-path form.
     ("hardcoded macOS home path", re.compile(r"/Users/[A-Za-z0-9_]")),
     ("hardcoded Linux home path", re.compile(r"/home/[A-Za-z0-9_]")),
+    ("hardcoded root home path", re.compile(r"/root/[A-Za-z0-9_.]")),
     ("hardcoded Windows home path", re.compile(r"[A-Za-z]:[/\\]Users[/\\][A-Za-z0-9_]")),
     ("this-repo gate command", re.compile(r"scripts/ci/check_all\.py")),
     ("internal milestone reference", re.compile(r"\bM2-\d\d\b")),
@@ -101,6 +102,7 @@ def selftest() -> int:
         "read /Users/someone/code/app",
         "read /Users/Alice/code/app",
         "read /home/alice/code/app",
+        "read /root/private-app/config",
         "read C:\\Users\\someone\\code\\app",
         "read D:/Users/Alice/repo",
         "the gate is python3 scripts/ci/check_all.py",

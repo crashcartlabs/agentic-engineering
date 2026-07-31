@@ -53,7 +53,9 @@ three ways:
 2. **Tag the private ref** — before `just publish`, tag the exact private commit
    being exported as `v<version>` (one tag per published snapshot). The public
    snapshot commit message embeds the private short SHA; the tag is what makes
-   that SHA resolvable later.
+   that SHA resolvable later. The publisher enforces this: a non-dry-run
+   `publish_public.py` refuses to push unless `v<version>` exists and points at
+   the exported ref.
 3. **Optionally tag the public snapshot commit** as `v<version>` after the
    force-push, so public consumers can pin a release even though `main` moves by
    replacement.

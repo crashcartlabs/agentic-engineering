@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import pathlib
 import shutil
 import subprocess
@@ -85,8 +86,39 @@ def build_snapshot(ref: str, workdir: pathlib.Path, today: str) -> pathlib.Path:
     return tree
 
 
+def verify_release_tag(repo: pathlib.Path, ref: str, version: str) -> None:
+    """Require v<version> to exist and point at the exported ref before pushing.
+
+    The snapshot commit message embeds the private short SHA; the tag is what
+    keeps that SHA resolvable later, so an untagged publish defeats the release
+    identity (docs/publishing.md).
+    """
+    tag = f"v{version}"
+
+    def commit_of(name: str) -> str | None:
+        proc = subprocess.run(
+            ["git", "rev-parse", "-q", "--verify", f"{name}^{{commit}}"],
+            cwd=repo, capture_output=True, text=True,
+        )
+        return proc.stdout.strip() if proc.returncode == 0 else None
+
+    tag_commit = commit_of(f"refs/tags/{tag}")
+    if tag_commit is None:
+        raise SystemExit(
+            f"error: release tag {tag} does not exist; tag the ref before publishing "
+            "(see docs/publishing.md)"
+        )
+    if tag_commit != commit_of(ref):
+        raise SystemExit(
+            f"error: release tag {tag} does not point at {ref}; retag or pick the tagged ref"
+        )
+
+
 def publish(remote: str, ref: str, dry_run: bool, today: str) -> int:
     short_sha = resolve_ref(ref)
+    if not dry_run:
+        version = json.loads((REPO / "toolbelt.json").read_text(encoding="utf-8"))["version"]
+        verify_release_tag(REPO, ref, version)
     with tempfile.TemporaryDirectory(prefix="agentic-publish-") as raw:
         workdir = pathlib.Path(raw)
         tree = build_snapshot(ref, workdir, today)
@@ -141,6 +173,33 @@ def selftest() -> int:
             failures.append(f"{name} reset deviates from its expected exact content")
     if set(files) != set(expected):
         failures.append(f"reset file set changed: {sorted(files)} != {sorted(expected)}")
+
+    with tempfile.TemporaryDirectory(prefix="publish-selftest-") as raw:
+        repo = pathlib.Path(raw)
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@invalid.example"]
+        subprocess.run([*git, "init", "-q", "-b", "main"], cwd=repo, check=True)
+        (repo / "f.txt").write_text("x\n", encoding="utf-8")
+        subprocess.run([*git, "add", "-A"], cwd=repo, check=True)
+        subprocess.run([*git, "commit", "-q", "-m", "one"], cwd=repo, check=True)
+        try:
+            verify_release_tag(repo, "main", "9.9.9")
+        except SystemExit:
+            pass
+        else:
+            failures.append("publishing without the release tag was not refused")
+        subprocess.run([*git, "tag", "v9.9.9"], cwd=repo, check=True)
+        try:
+            verify_release_tag(repo, "main", "9.9.9")
+        except SystemExit:
+            failures.append("a correctly tagged ref was refused")
+        (repo / "f.txt").write_text("y\n", encoding="utf-8")
+        subprocess.run([*git, "commit", "-q", "-am", "two"], cwd=repo, check=True)
+        try:
+            verify_release_tag(repo, "main", "9.9.9")
+        except SystemExit:
+            pass
+        else:
+            failures.append("a tag pointing at an older commit was not refused")
     print("publish_public selftest:", "OK" if not failures else "FAIL")
     for failure in failures:
         print(f"  - {failure}")

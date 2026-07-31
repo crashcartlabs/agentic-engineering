@@ -105,6 +105,8 @@ def _run_claude(
         # A hung live agent is a failed run, not a broken harness: surface it as
         # nonzero-exit evidence so the scenario records FAIL instead of a traceback.
         return ProviderResult(124, f"provider timed out after {timeout}s")
+    except OSError as exc:
+        raise EvalError(f"claude CLI could not launch: {exc}") from exc
     return ProviderResult(proc.returncode, proc.stdout + ("\n" + proc.stderr if proc.stderr else ""))
 
 
@@ -136,4 +138,6 @@ def _run_fake(
         )
     except subprocess.TimeoutExpired:
         return ProviderResult(124, f"provider timed out after {timeout}s")
+    except OSError as exc:
+        raise EvalError(f"fake provider script could not launch: {exc}") from exc
     return ProviderResult(proc.returncode, proc.stdout + ("\n" + proc.stderr if proc.stderr else ""))
