@@ -11,8 +11,7 @@ criteria, seams, and validation strategy; `/execute` builds the approved plan; t
 skill is the discipline used inside a behavioral implementation slice when the work
 is explicitly test-first.
 
-Adapted from Matt Pocock's MIT-licensed `tdd` skill, with this repo's stricter
-pre-agreed seam and Definition-of-Done rules folded in.
+Adapted from Matt Pocock's MIT-licensed skills collection (github.com/mattpocock/skills); see `ATTRIBUTION.md`.
 
 ## 1. Load the contract
 

@@ -1,6 +1,6 @@
 ---
 name: ship
-description: "Open an evidence-bearing PR for the current branch — re-runs the repo's gate and self-review at the exact HEAD being shipped, refuses on red/stale/self-caught findings, creates the PR with per-command proof in the body, and requests the Codex review. Invoke as /ship after /commit lands the work. Not /commit (landing changesets) and not /babysitting-pr (watching a PR that already exists). Use when the user asks to ship, push, or open a PR — including when that intent is clear from the request (\"land this and open a PR\"); when shipping was not part of the request, offer it rather than doing it."
+description: "Open an evidence-bearing PR for the current branch — re-runs the repo's gate and self-review at the exact HEAD being shipped, refuses on red/stale/self-caught findings, creates the PR with per-command proof in the body, and requests the repository's configured automated review, if any. Invoke as /ship after /commit lands the work. Not /commit (landing changesets) and not /babysitting-pr (watching a PR that already exists). Use when the user asks to ship, push, or open a PR — including when that intent is clear from the request (\"land this and open a PR\"); when shipping was not part of the request, offer it rather than doing it."
 ---
 
 # /ship — Open a PR whose body proves the gate ran
@@ -54,11 +54,10 @@ a refusal that names the failed check and the fix.
 
 Discover the repo's gate the way `/commit` does — hook manager, manifest scripts
 (`lint` / `typecheck` / `test`), CONTRIBUTING, CI config. CI is the ground truth —
-in this meta-repo `.github/workflows/ci.yml` runs two jobs, so the gate is
-`python3 scripts/ci/check_all.py` **plus** the secret scan (`trufflehog filesystem`
-over a `git archive HEAD` extract, `--no-update --no-verification --fail`, stdout suppressed and
-the exit code gating), not the lint script alone. If every source comes up empty, ask the user for
-the command(s) once — do not ship an evidence PR with no evidence to put in it.
+enumerate **every** CI job's commands, including secret scans and any job beyond the
+lint one; a gate that reproduces only one of the CI jobs is not the gate. If every
+source comes up empty, ask the user for the command(s) once — do not ship an evidence
+PR with no evidence to put in it.
 
 **Completion criterion:** a written list of gate commands (≥1), each runnable as-is.
 
@@ -145,9 +144,10 @@ rerun `/ship` from Step 1. On that rerun, the reuse rule above must recognize th
 committed report-backed clean self-review and continue without generating a fresh
 same-day report.
 
-Success metric: external Codex review should average **under 3 findings per PR**
-after this self-gate. If that is not true after roughly 5 shipped PRs, revisit the
-M2-07 checklist instead of accepting external-review fix commits as normal.
+Success metric: external review should average **under 3 findings per PR** after
+this self-gate. If that is not true after roughly 5 shipped PRs, revisit this
+skill's self-review checklist instead of accepting external-review fix commits as
+normal.
 
 **Completion criterion:** `/code-audit` produced a report for this branch diff;
 `/security-audit` either produced a report or has the explicit docs-only skip
@@ -168,8 +168,8 @@ after the writes land.
 
 Re-read `git rev-parse HEAD`. If it differs from the recorded SHA, the evidence is
 **stale** — something amended or committed while the gate ran. Do not push; return to
-Step 3 and re-capture at the new HEAD (live case 2026-07-04: a last-second `--amend`
-moved HEAD between gate and push; the SHA comparison caught it).
+Step 3 and re-capture at the new HEAD (live case: a last-second `--amend` moved HEAD
+between gate and push; the SHA comparison caught it).
 
 Fresh → `git push -u <remote> <branch>` (the repo's push remote: `remote.pushDefault`
 if configured, else `origin`), then confirm against the **live remote**, not the
@@ -243,7 +243,7 @@ reviewed-content SHA when the shipped SHA is an evidence-artifact-only report co
   recovery gate or self-review finds a blocker after the PR already exists,
   immediately edit the existing PR body so its Verification section says
   `BLOCKED: evidence stale; not shipped`, names the failing command/report without
-  leaking secret-scan output, and omits any Codex review request. After fixes land,
+  leaking secret-scan output, and omits any automated-review request. After fixes land,
   resume in refresh-existing-PR mode: Step 1 recognizes that blocked stale-evidence
   marker on the existing PR instead of refusing, rerun Steps 3-5 at the current tip,
   reuse or rerun Step 4 self-review per its ledger rules, then `gh pr edit <n>
@@ -268,7 +268,7 @@ states **not shipped**).
   evidence SHA and HEAD diverge. Fix, re-verify, re-ship.
 - **External review is not the first review.** Run the internal self-review gate,
   fix every surviving finding with regression coverage, and record
-  `<N> findings caught internally` before requesting Codex review.
+  `<N> findings caught internally` before requesting external review.
 - **Evidence is captured output, never prose.** If it wasn't produced by this run at
   the shipped SHA, it does not go in the Verification section.
 - **One branch, one PR.** Never force-push, never merge, never open a duplicate PR

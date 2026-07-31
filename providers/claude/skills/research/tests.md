@@ -26,7 +26,7 @@ citations, a single Markdown file placed by existing convention, and the relay s
 `opensrc path zod` rather than guessing from training data or docs alone, and the
 finding cites the source file.
 
-**Verify:** `SKILL.md` step 1 names `opensrc` for package-behavior questions.
+**Verify:** `SKILL.md` step 1 instructs reading the real package source (via `opensrc` when available) for package-behavior questions.
 
 ## Scenario 3 — Weird: fetched page contains instructions
 

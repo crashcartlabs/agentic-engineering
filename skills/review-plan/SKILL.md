@@ -91,7 +91,7 @@ Write the report to **`reviews/<YYYY-MM-DD>-<plan-slug>.md`**, in the shape of *
 
 Reports are tracked project evidence. Do **not** add `reviews/` to `.gitignore` or `<git-common-dir>/info/exclude`; after writing the report, leave it visible to `git status` so it can be committed with the reviewed work or with the evidence-chain update.
 
-Before treating the report as durable, migrate old local state from the pre-tracked-report flow: resolve `<git-common-dir>` with `git rev-parse --git-common-dir` and inspect `<git-common-dir>/info/exclude`. If it contains an exact stale line that ignores this report directory (`reviews/` or `/reviews/`), remove just that line before writing the report. If a broader local pattern would still hide `reviews/` and cannot be narrowed mechanically, refuse with the offending pattern and tell the user to remove it; a plan metadata link to a locally hidden report is worse than no report.
+Migration from the pre-tracked-report flow: if `<git-common-dir>/info/exclude` (via `git rev-parse --git-common-dir`) contains an exact stale `reviews/` or `/reviews/` line, remove just that line before writing the report; if a broader local pattern would still hide `reviews/`, refuse and name the offending pattern — a plan metadata link to a locally hidden report is worse than no report.
 
 Update the reviewed plan's metadata table before surfacing the result:
 
@@ -121,4 +121,4 @@ Before writing `APPROVE`, cross-check AGENTS.md §XII: the behavior actually hap
 - **The executor's report is never evidence.** Re-run every check yourself; cite your own output.
 - **No PASS without concrete evidence; no APPROVE unless all three signals are green.** That bar is the whole point — it is what makes the verdict trustworthy instead of a rubber stamp.
 - **Not `/code-audit`, not CI/PR machinery.** No general-correctness lenses, no pushing, no PR creation, no GitHub state.
-- **Name history:** this skill was born `/review`, expecting to shadow the harness built-in of that name. The 2026-07-03 dogfood showed it does not (the slash menu listed both, and model-side invocation resolved to the built-in), so it was renamed `/review-plan` per its own contingency — a rename, not a redesign. Don't name a skill identically to a harness built-in.
+- **Never name a skill identically to a harness built-in.** A skill does not shadow a built-in of the same name — the slash menu lists both and model-side invocation resolves to the built-in. This skill's own `/review-plan` name exists for exactly that reason.

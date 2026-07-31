@@ -43,10 +43,9 @@ Tear both down at wind-down.
 
 Seed the monitor's first previous-state value from the arm-time snapshot. Do not let
 the first poll self-baseline: anything that lands between the arm read and the first
-poll would otherwise be absorbed as "already seen" and never wake the watcher. This
-was caught live on 2026-07-04 when a review landed seconds after arming and only a
-human noticed. The watch is armed only once the monitor is diffing against the
-arm-time state.
+poll would otherwise be absorbed as "already seen" and never wake the watcher (caught
+live when a review landed seconds after arming and only a human noticed). The watch is
+armed only once the monitor is diffing against the arm-time state.
 
 ## Pagination and baselines
 
@@ -66,5 +65,5 @@ gh api --paginate ... --slurp --jq 'flatten | length'
 
 Build the seed by running the same extraction code the loop runs. A hand-written
 baseline in a different shape guarantees a false first delta, and a wrong-field parse
-can be worse than noisy: the 2026-07-04 live watch found a status parse that read check
-names and would have stayed silent on a real CI failure.
+can be worse than noisy: one live watch found a status parse that read check names and
+would have stayed silent on a real CI failure.

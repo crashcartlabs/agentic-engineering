@@ -31,7 +31,14 @@ REPO = CI_DIR.parents[1]
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(CI_DIR))
 
-LINT_MODULES = ("lint_records", "lint_plans", "lint_skills", "lint_links", "skill_catalog")
+LINT_MODULES = (
+    "lint_records",
+    "lint_plans",
+    "lint_skills",
+    "lint_links",
+    "lint_sediment",
+    "skill_catalog",
+)
 SELFTESTS = (
     ("toolbelt.py --selftest", REPO / "scripts" / "toolbelt.py", "toolbelt selftest: FAIL"),
     ("dashboard.py --selftest", REPO / "scripts" / "dashboard" / "dashboard.py", "dashboard selftest: FAIL"),
@@ -47,6 +54,7 @@ SELFTESTS = (
     ("lint_records.py --selftest", CI_DIR / "lint_records.py", "record-file lint selftest: FAIL"),
     ("lint_skills.py --selftest", CI_DIR / "lint_skills.py", "skill lint selftest: FAIL"),
     ("lint_links.py --selftest", CI_DIR / "lint_links.py", "markdown link selftest: FAIL"),
+    ("lint_sediment.py --selftest", CI_DIR / "lint_sediment.py", "sediment lint selftest: FAIL"),
     ("test_check_all.py --selftest", CI_DIR / "test_check_all.py", "aggregate gate selftest: FAIL"),
     (
         "prepare_archive.py --selftest",
@@ -130,7 +138,22 @@ def materialize_index(repo: pathlib.Path, destination: pathlib.Path) -> None:
         raise RuntimeError(f"could not index snapshot contents: {staged.stderr.strip()}")
 
 
-def run_index_snapshot() -> int:
+def run_generate_check() -> int:
+    """Verify the committed provider adapters match a fresh generation."""
+    proc = subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "toolbelt.py"), "generate", "--check"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        timeout=120,
+    )
+    _print_subprocess_output(proc.stdout)
+    _print_subprocess_output(proc.stderr, file=sys.stderr)
+    return proc.returncode
+
+
+def run_index_snapshot(*, quick: bool = False) -> int:
     """Run the entire gate, including subprocess selftests, against staged bytes."""
     with tempfile.TemporaryDirectory(prefix="agentic-index-gate-") as raw:
         snapshot = pathlib.Path(raw) / "repo"
@@ -138,8 +161,11 @@ def run_index_snapshot() -> int:
         script = snapshot / "scripts" / "ci" / "check_all.py"
         if not script.is_file():
             raise RuntimeError("staged snapshot does not contain scripts/ci/check_all.py")
+        command = [sys.executable, str(script), "--worktree"]
+        if quick:
+            command.append("--quick")
         proc = subprocess.run(
-            [sys.executable, str(script), "--worktree"],
+            command,
             cwd=snapshot,
             env={
                 **{key: value for key, value in os.environ.items() if key != "GIT_INDEX_FILE"},
@@ -155,11 +181,17 @@ def main(argv: list[str] | None = None) -> int:
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--index", action="store_true", help="lint the Git index")
     source.add_argument("--worktree", action="store_true", help="lint the working tree (default)")
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="run the lint modules and the generated-adapter drift check only, "
+        "skipping the slow subprocess selftests (pre-commit mode; CI runs the full gate)",
+    )
     args = parser.parse_args(argv)
     if args.index:
         print("lint source: index snapshot")
         try:
-            return run_index_snapshot()
+            return run_index_snapshot(quick=args.quick)
         except Exception as exc:  # noqa: BLE001 - snapshot failure means the gate is broken
             print(f"index snapshot crashed: {exc!r}")
             print("\nCI_VERDICT: ERROR")
@@ -167,7 +199,7 @@ def main(argv: list[str] | None = None) -> int:
     import gittracked
 
     gittracked.configure("worktree")
-    print("lint source: worktree")
+    print("lint source: worktree" + (" (quick)" if args.quick else ""))
     check_failed = False
     crashed = False
     for name in LINT_MODULES:
@@ -178,13 +210,23 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 - a crashing lint is itself the finding
             crashed = True
             print(f"\n{name} crashed: {exc!r}")
-    for name, script, failure_marker in SELFTESTS:
+    if args.quick:
+        # Adapter drift is otherwise caught only inside the (slow) toolbelt selftest,
+        # so quick mode runs the cheap generation check directly.
         try:
-            if run_selftest(name, script, failure_marker):
+            if run_generate_check():
                 check_failed = True
-        except Exception as exc:  # noqa: BLE001 - a crashing selftest is itself the finding
+        except Exception as exc:  # noqa: BLE001 - a crashing check is itself the finding
             crashed = True
-            print(f"\n{name} crashed: {exc!r}")
+            print(f"\ngenerate --check crashed: {exc!r}")
+    else:
+        for name, script, failure_marker in SELFTESTS:
+            try:
+                if run_selftest(name, script, failure_marker):
+                    check_failed = True
+            except Exception as exc:  # noqa: BLE001 - a crashing selftest is itself the finding
+                crashed = True
+                print(f"\n{name} crashed: {exc!r}")
 
     verdict = aggregate_verdict(check_failed, crashed)
     print(f"\nCI_VERDICT: {verdict}")

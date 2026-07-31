@@ -23,33 +23,21 @@ Explicitly **out of scope** — do not raise these as findings; each is a siblin
 
 ## Effort tiers
 
-| Tier | Verification | Discovery | Thoroughness |
-|------|--------------|-----------|--------------|
-| `low` | 1 skeptic per finding | single pass | high-confidence findings only |
-| `medium` | 1 skeptic per finding | single pass | standard sweep |
-| **`high`** (default) | panel of 3, majority-kills | single pass | standard sweep |
-| `max` | panel of 3, majority-kills | loop-until-dry | exhaustive sweep |
-
-Effort scales *verification rigor + discovery persistence + how hard each lens looks* — never the lens set. All five lenses always run; dropping correctness lenses to "go faster" is the wrong economy.
+The tier table and its semantics are shared pipeline mechanics — see
+[references/shared-pipeline.md](references/shared-pipeline.md). All five correctness
+lenses run at every tier.
 
 ## Pipeline
 
 ### 1. Pin the baseline — before reading any code
 
-Everything runs from the current worktree's directory, so sibling worktrees and the main repo stay invisible.
-
-- **Resolve the base ref.** Run `agentic resolve-base` from the target worktree and use
-  its output as `<base-ref>`. This shared resolver prefers `origin/HEAD`, then existing
-  remote-tracking `origin/main`/`origin/master`, then local `main`/`master`; do not
-  reimplement or reorder that policy inside this skill.
-- **Compute the merge-base:** `git merge-base <base-ref> HEAD`.
-- **Capture the review span** — everything this branch changed vs the base, *committed or not*:
-  - committed branch work: `git diff <base-ref>...HEAD` (three-dot, from the merge-base)
-  - uncommitted tracked changes: `git diff HEAD`
-  - untracked new files: `git status --porcelain --untracked-files=all` — the `--untracked-files=all` is essential, since the default mode collapses a newly added directory to a single `dir/` entry and would hide every file inside it. Include the full contents of each new (`??`) file.
-- **Honor the args:** a `baseline` arg (SHA / branch / tag) overrides `<base-ref>`; `paths...` scope the diff to those files.
-- **If the span is empty, stop** and say so — there is nothing to review. Do not manufacture work.
-- **State plainly what is under review:** branch, base ref, file count, `+`/`−` line counts. This assembled diff is the **pinned diff** — every reviewer sees exactly this and nothing else changes underneath them.
+Follow the shared baseline-pinning procedure in
+[references/shared-pipeline.md](references/shared-pipeline.md): resolve `<base-ref>`
+with `agentic resolve-base`, compute the merge-base, capture the full review span
+(committed, uncommitted, and untracked with `--untracked-files=all`), honor
+`baseline`/`paths...` args, stop if the span is empty, and state what is under review.
+The assembled diff is the **pinned diff** — every reviewer sees exactly this and
+nothing else changes underneath them.
 
 ### 2. Fan out the five lens reviewers — in parallel
 
@@ -68,19 +56,26 @@ clean.
 
 ### 3. Barrier, then dedupe
 
-Wait for all five to return. Merge duplicates — two lenses will land on the same bug; collapse them into one finding, keeping the clearest failure scenario. This dedupe happens *before* verification so you never spend skeptics on the same bug twice.
+Apply the shared barrier-and-dedupe step
+([references/shared-pipeline.md](references/shared-pipeline.md)), keeping the clearest
+failure scenario when two lenses land on the same bug.
 
 ### 4. Adversarial verification — the gate
 
-For each deduped finding, spawn verifier subagent(s). A verifier's **only** job is to **refute** the finding — its default verdict is "not a bug." A finding **survives only if the verifier confirms a concrete failure scenario**: the specific input or state that makes the code misbehave, and what it does wrong. No scenario, no survival. "Looks fragile," "could be cleaner," or any claim with no reproducible trigger path is dropped, not reported.
-
-- `low` / `medium`: one verifier per finding.
-- `high` / `max`: a **panel of three** verifiers per finding; the finding dies unless a majority confirm the failure scenario.
-- `max` only — **loop-until-dry:** after verifying, re-run the five lenses on the same pinned diff; keep going until a full round surfaces nothing new, then stop.
+Run the shared adversarial gate
+([references/shared-pipeline.md](references/shared-pipeline.md)) — verifiers default
+to refutation, tier-scaled panel sizes, loop-until-dry at `max` — with this skill's
+survival bar: a finding **survives only if the verifier confirms a concrete failure
+scenario**, the specific input or state that makes the code misbehave and what it does
+wrong. "Looks fragile," "could be cleaner," or any claim with no reproducible trigger
+path is dropped, not reported.
 
 ### 5. Compile and write the report
 
-Write the report to **`code-reviews/<YYYY-MM-DD>-<branch-slug>.md`** in the worktree, in the shape defined by **`assets/report-template.md`** (structure + worked example + clean-bill variant). Get today's date at runtime — `Get-Date -Format yyyy-MM-dd` on Windows, `date +%F` on POSIX; `<branch-slug>` is the current branch lowercased with `/` and non-kebab characters replaced by `-`. If that file already exists (a same-day re-review), append `-2`, `-3`, … .
+Write the report to **`code-reviews/<YYYY-MM-DD>-<branch-slug>.md`** in the worktree,
+in the shape defined by **`assets/report-template.md`** (structure + worked example +
+clean-bill variant), using the shared date/slug/suffix rules in
+[references/shared-pipeline.md](references/shared-pipeline.md).
 
 **Keep the report out of git without touching a tracked file.** The report directory must not show up in `git status`, the reviewed diff, or a commit — but editing the tracked `.gitignore` would itself dirty the worktree and pollute the very diff under review. So ignore it **locally** instead: find the git dir with `git rev-parse --git-common-dir` and ensure a `code-reviews/` line exists in `<git-common-dir>/info/exclude` (create or append if missing). That file is never tracked and never part of a diff. Do not modify `.gitignore`.
 

@@ -26,33 +26,28 @@ The survival bar below is what enforces this line. If you cannot show an attacke
 
 ## Effort tiers
 
-| Tier | Verification | Discovery | Thoroughness |
-|------|--------------|-----------|--------------|
-| `low` | 1 skeptic per finding | single pass | high-confidence findings only |
-| `medium` | 1 skeptic per finding | single pass | standard sweep |
-| **`high`** (default) | panel of 3, majority-kills | single pass | standard sweep |
-| `max` | panel of 3, majority-kills | loop-until-dry | exhaustive sweep |
-
-Effort scales *verification rigor + discovery persistence + how hard each hunter looks* — never the lens set. All five hunters always run; even `low` keeps one genuine skeptic per finding, because a false "you have an auth bypass" is costly and alarming in a way a false correctness nit is not. `--full` is **orthogonal** to effort — `/security-audit --full low` is a shallow whole-repo pass; `/security-audit max` is an exhaustive diff pass.
+The tier table and its semantics are shared pipeline mechanics — see
+[references/shared-pipeline.md](references/shared-pipeline.md). All five hunters run
+at every tier; even `low` keeps one genuine skeptic per finding, because a false "you
+have an auth bypass" is costly and alarming in a way a false correctness nit is not.
+`--full` is **orthogonal** to effort — `/security-audit --full low` is a shallow
+whole-repo pass; `/security-audit max` is an exhaustive diff pass.
 
 ## Pipeline
 
 ### 1. Pin the scope — before reading any code
 
-Everything resolves from the current worktree's directory, so sibling worktrees and the main repo stay invisible.
+Follow the shared baseline-pinning procedure in
+[references/shared-pipeline.md](references/shared-pipeline.md): resolve `<base-ref>`
+with `agentic resolve-base`, compute the merge-base, capture the full review span
+(committed, uncommitted, and untracked with `--untracked-files=all`), honor
+`baseline`/`paths...` args, stop if the span is empty, and state what is under review.
+Two security-specific deltas:
 
-- **Resolve the base ref.** Run `agentic resolve-base` from the target worktree and use
-  its output as `<base-ref>`. This is the shared policy for remote/local fallback order;
-  do not copy a variant into this skill.
-- **Compute the merge-base:** `git merge-base <base-ref> HEAD`.
-- **Capture the review span** — everything this branch changed vs the base, *committed or not*:
-  - committed branch work: `git diff <base-ref>...HEAD` (three-dot, from the merge-base)
-  - uncommitted tracked changes: `git diff HEAD`
-  - untracked new files: `git status --porcelain --untracked-files=all` — the `--untracked-files=all` is essential; the default mode collapses a newly added directory to a single `dir/` entry and hides every file inside it. Include the full contents of each new (`??`) file.
-- **Honor the args:** a `baseline` arg (SHA / branch / tag) overrides `<base-ref>`; `paths...` scope the diff to those files.
-- **`--full` overrides all of the above:** ignore the diff entirely and treat the **whole repository** as the scope (see [`--full` mode](#full-mode)).
-- **If the diff span is empty (and not `--full`), stop** and say so — there is nothing to review. Do not manufacture work.
-- **State plainly what is under review:** branch, base ref, file count, `+`/`−` line counts (or "whole repository" under `--full`). This assembled diff is the **pinned scope** — every hunter sees exactly this.
+- **`--full` overrides the diff scope:** ignore the diff entirely and treat the
+  **whole repository** as the scope (see [`--full` mode](#full-mode)); the empty-span
+  stop does not apply, and "whole repository" is what you state as under review.
+- The assembled diff is the **pinned scope** — every hunter sees exactly this.
 
 ### 2. Recon — map the trust boundaries (first-class phase, not a warmup)
 
@@ -94,11 +89,19 @@ Be aware: `npm audit` / `pip-audit` make an **outbound network call** to a publi
 
 ### 4. Barrier, then dedupe
 
-Wait for all five to return. Merge duplicates — the injection and untrusted-input hunters will both land on the same deserialization sink; collapse them into one finding, keeping the clearest exploit path. Dedupe *before* verification so you never spend skeptics on the same vuln twice.
+Apply the shared barrier-and-dedupe step
+([references/shared-pipeline.md](references/shared-pipeline.md)) — the injection and
+untrusted-input hunters will both land on the same deserialization sink; keep the
+clearest exploit path.
 
 ### 5. Adversarial verification — the gate
 
-For each deduped finding, spawn verifier subagent(s). A verifier's **only** job is to **refute** the finding — its default verdict is *"not exploitable."* A finding **survives only if the verifier confirms a concrete, attacker-reachable exploit path, traced against the real source.** Concretely, the verifier must be able to state:
+Run the shared adversarial gate
+([references/shared-pipeline.md](references/shared-pipeline.md)) — verifiers default
+to refutation, tier-scaled panel sizes, loop-until-dry at `max` (re-running the
+recon-informed hunters) — with this skill's survival bar: a finding **survives only if
+the verifier confirms a concrete, attacker-reachable exploit path, traced against the
+real source.** Concretely, the verifier must be able to state:
 
 - **who** — the attacker's starting position (unauthenticated? any logged-in user? a specific role?),
 - **what they send** — the specific input/request that triggers it,
@@ -107,17 +110,13 @@ For each deduped finding, spawn verifier subagent(s). A verifier's **only** job 
 
 No such path, no survival. "Looks dangerous," "could be unsafe," a scanner hit with no reachable route, or any claim whose `file:line` does not hold up is dropped — or, if it is a genuine but path-less weakness, moved to the **Hardening** bucket. This folds factual verification into the survival bar: the verifier cannot confirm an exploit it cannot locate and trace in the actual code.
 
-- `low` / `medium`: one verifier per finding.
-- `high` / `max`: a **panel of three** verifiers per finding; the finding dies unless a majority confirm the exploit path.
-- `max` only — **loop-until-dry:** after verifying, re-run recon-informed hunters on the same pinned scope; keep going until a full round surfaces nothing new, then stop.
-
 ### 6. Compile and write the report
 
-Write the report to **`security-reviews/<YYYY-MM-DD>-<slug>.md`** in the worktree, in the shape defined by **`assets/security-report-template.md`** (structure + worked example + clean-bill variant). Get today's date at runtime — `Get-Date -Format yyyy-MM-dd` on Windows, `date +%F` on POSIX. `<slug>` is the current branch lowercased with `/` and non-kebab characters replaced by `-`, or `full-audit` under `--full`. If the file already exists (a same-day re-review), append `-2`, `-3`, ….
+Write the report to **`security-reviews/<YYYY-MM-DD>-<slug>.md`** in the worktree, in the shape defined by **`assets/security-report-template.md`** (structure + worked example + clean-bill variant), using the shared date/slug/suffix rules in [references/shared-pipeline.md](references/shared-pipeline.md); the slug is `full-audit` under `--full`.
 
 Security reports are tracked project evidence. Do **not** add `security-reviews/` to `.gitignore` or `<git-common-dir>/info/exclude`; after writing the report, leave it visible to `git status` so it can be committed with the reviewed work or with the evidence-chain update.
 
-Before treating the report as durable, migrate old local state from the pre-tracked-report flow: resolve `<git-common-dir>` with `git rev-parse --git-common-dir` and inspect `<git-common-dir>/info/exclude`. If it contains an exact stale line that ignores this report directory (`security-reviews/` or `/security-reviews/`), remove just that line before writing the report. If a broader local pattern would still hide `security-reviews/` and cannot be narrowed mechanically, refuse with the offending pattern and tell the user to remove it; a security finding report hidden from `git status` is not durable evidence.
+Migration from the pre-tracked-report flow: if `<git-common-dir>/info/exclude` (via `git rev-parse --git-common-dir`) contains an exact stale `security-reviews/` or `/security-reviews/` line, remove just that line before writing the report; if a broader local pattern would still hide `security-reviews/`, refuse and name the offending pattern — a report hidden from `git status` is not durable evidence.
 
 The report leads with the **trust-boundary map**, then findings ordered **most-severe-first** (every `CRITICAL` before any `HIGH`, and so on), then the **Hardening (not findings)** bucket, the **Pre-existing (outside this diff)** note if any, and a brief **Good practices observed** section.
 

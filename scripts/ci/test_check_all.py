@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import pathlib
+import shutil
 import subprocess
+import sys
 import tempfile
 
 import check_all
@@ -37,6 +39,35 @@ def main() -> int:
     batch = (check_all.REPO / "scripts" / "ci" / "run_gate.cmd").read_text(encoding="utf-8")
     if "goto use_py" not in batch or "goto use_python" not in batch or "if %errorlevel% equ 0 (" in batch:
         failures.append("Windows gate wrapper does not preserve the runtime Python exit status")
+
+    # --quick must skip the slow subprocess selftests yet still catch a stale
+    # generated provider adapter, or the pre-commit hook would wave drift through.
+    with tempfile.TemporaryDirectory(prefix="aggregate-quick-selftest-") as raw:
+        copy = pathlib.Path(raw) / "repo"
+        shutil.copytree(
+            check_all.REPO,
+            copy,
+            ignore=shutil.ignore_patterns(".git", "__pycache__", ".public-snapshot-dryrun"),
+        )
+        subprocess.run(["git", "init", "--quiet"], cwd=copy, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=copy, check=True)
+        mirror = copy / "providers" / "claude" / "skills" / "spec" / "SKILL.md"
+        mirror.write_text(
+            mirror.read_text(encoding="utf-8") + "\ndoctored drift line\n", encoding="utf-8"
+        )
+        proc = subprocess.run(
+            [sys.executable, str(copy / "scripts" / "ci" / "check_all.py"), "--worktree", "--quick"],
+            cwd=copy,
+            capture_output=True,
+            text=True,
+            timeout=150,
+        )
+        if proc.returncode != 1 or "CI_VERDICT: FAIL" not in proc.stdout:
+            failures.append(
+                f"--quick did not fail on a doctored stale adapter (exit {proc.returncode})"
+            )
+        if "toolbelt selftest" in proc.stdout:
+            failures.append("--quick still ran the slow subprocess selftests")
     if failures:
         print("aggregate gate selftest: FAIL")
         for failure in failures:

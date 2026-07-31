@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""Keep provider-neutral content free of personal and repo-specific sediment.
+
+The shared skills (`skills/`) and canonical agent prompts (`agents/`) install into
+other repositories and other machines, so they must not carry facts that are true
+only here: private account handles, personal machine paths, this repo's own gate
+command, or internal milestone names. This lint fails the build when such sediment
+lands in shared content, so neutrality is enforced rather than re-argued in review.
+
+Two checks:
+
+1. Denylist scan over tracked `skills/` and `agents/` files (excluding each skill's
+   `tests.md` run-evidence and the explicitly machine-specific skills in
+   EXEMPT_SKILLS). The tracked patterns are deliberately generic so no private
+   token is itself republished by this file; exact private strings belong in the
+   `AGENTIC_SEDIMENT_EXTRA` env var (comma-separated literals, set as a CI secret
+   where needed) and are never echoed on a match.
+2. Identity check: every `skills/*/references/shared-pipeline.md` copy must be
+   byte-identical — that file is single-sourced by convention and duplicated only
+   because installed skills must stay self-contained.
+
+Pure stdlib, cross-platform. Exit 0 clean, 1 on any violation.
+"""
+
+from __future__ import annotations
+
+import os
+import pathlib
+import re
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import gittracked  # noqa: E402
+from lint_common import print_lint_epilogue  # noqa: E402
+
+REPO = gittracked.REPO
+
+# Skills deliberately kept machine-specific (macOS cmux, POSIX dashboard).
+EXEMPT_SKILLS = {"cmux", "dashboard"}
+
+SHARED_BASENAME = "shared-pipeline.md"
+
+DENYLIST: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("private namespace reference", re.compile(r"mjenkins", re.IGNORECASE)),
+    ("personal-machine claim", re.compile(r"installed globally on this machine", re.IGNORECASE)),
+    ("hardcoded macOS home path", re.compile(r"/Users/[a-z]")),
+    ("hardcoded Windows home path", re.compile(r"C:\\Users\\", re.IGNORECASE)),
+    ("this-repo gate command", re.compile(r"scripts/ci/check_all\.py")),
+    ("internal milestone reference", re.compile(r"\bM2-\d\d\b")),
+)
+
+
+def extra_literals() -> tuple[str, ...]:
+    raw = os.environ.get("AGENTIC_SEDIMENT_EXTRA", "")
+    return tuple(token.strip() for token in raw.split(",") if token.strip())
+
+
+def scan_text(rel: str, text: str, extra: tuple[str, ...]) -> list[str]:
+    errors: list[str] = []
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        for label, pattern in DENYLIST:
+            if pattern.search(line):
+                errors.append(f"{rel}:{lineno}: {label} (pattern: {pattern.pattern})")
+        for token in extra:
+            if token in line:
+                # Never echo the token: the env extension exists precisely so
+                # private strings stay out of tracked text and CI logs.
+                errors.append(f"{rel}:{lineno}: AGENTIC_SEDIMENT_EXTRA token matched")
+    return errors
+
+
+def shared_pipeline_errors(contents: dict[str, str]) -> list[str]:
+    if len(set(contents.values())) > 1:
+        names = ", ".join(sorted(contents))
+        return [f"{SHARED_BASENAME} copies differ ({names}); they must be byte-identical"]
+    return []
+
+
+def scan_files() -> list[pathlib.Path]:
+    out: list[pathlib.Path] = []
+    for root in ("skills/", "agents/"):
+        for path in gittracked.tracked_files(root):
+            parts = path.relative_to(REPO).parts
+            if parts[0] == "skills" and len(parts) > 1 and parts[1] in EXEMPT_SKILLS:
+                continue
+            if path.name == "tests.md":
+                continue
+            out.append(path)
+    return out
+
+
+def selftest() -> int:
+    failures: list[str] = []
+    dirty_lines = (
+        "pushed to github.com/mjenkinsx0/private-repo",
+        "opensrc is installed globally on this machine",
+        "read /Users/someone/code/app",
+        "read C:\\Users\\someone\\code\\app",
+        "the gate is python3 scripts/ci/check_all.py",
+        "revisit the M2-07 checklist",
+    )
+    for line in dirty_lines:
+        if not scan_text("fixture.md", line, ()):
+            failures.append(f"denylist missed: {line!r}")
+    clean = "Discover the repo's gate from CI config; run it from the project root.\n"
+    if scan_text("fixture.md", clean, ()):
+        failures.append("clean fixture was flagged")
+    hits = scan_text("fixture.md", "token hunter2 present", ("hunter2",))
+    if not hits:
+        failures.append("extra-literal token was not flagged")
+    elif any("hunter2" in hit for hit in hits):
+        failures.append("extra-literal match echoed the token")
+    if shared_pipeline_errors({"a": "same", "b": "same"}):
+        failures.append("identical shared-pipeline copies were flagged")
+    if not shared_pipeline_errors({"a": "same", "b": "different"}):
+        failures.append("diverged shared-pipeline copies were accepted")
+    if failures:
+        print("sediment lint selftest: FAIL")
+        for failure in failures:
+            print(f"  - {failure}")
+        return 1
+    print("sediment lint selftest: OK (denylist, env extension, and identity negatives pinned)")
+    return 0
+
+
+def main() -> int:
+    errors: list[str] = []
+    extra = extra_literals()
+    shared: dict[str, str] = {}
+    for path in scan_files():
+        text = gittracked.tracked_text(path)
+        if text is None:
+            continue
+        rel = path.relative_to(REPO).as_posix()
+        errors.extend(scan_text(rel, text, extra))
+        if path.name == SHARED_BASENAME:
+            shared[rel] = text
+    errors.extend(shared_pipeline_errors(shared))
+    return print_lint_epilogue(
+        "sediment lint",
+        errors,
+        "shared skills/agents carry no personal or repo-specific sediment",
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(selftest() if "--selftest" in sys.argv[1:] else main())

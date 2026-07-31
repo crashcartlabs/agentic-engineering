@@ -20,19 +20,13 @@ Save to the repo-local **`handoffs/` directory**, never the OS temp directory. A
 - Create `<workspace>/handoffs/` if it does not exist.
 - Keep the directory untracked. Add `handoffs/` to the repository's local exclude file when missing. In a linked worktree, do **not** assume `.git/info/exclude` is a real path; ask Git for it (`git rev-parse --git-path info/exclude`).
 
-Name the file so it's identifiable later, e.g. `handoff-<repo-or-branch>-<YYYY-MM-DD>.md`. **Slugify the repo/branch component first** — replace `/` and any other path-unsafe characters with `-`. This repo's branches routinely contain slashes (`plan/<slug>`, `claude/<name>`); a raw `/` would be read as a path separator and either fail the write or scatter the file into an unintended subdirectory. Write only one file inside `handoffs/`; do not create nested paths from the branch name.
+Name the file so it's identifiable later, e.g. `handoff-<repo-or-branch>-<YYYY-MM-DD>.md`. **Slugify the repo/branch component first** — replace `/` and any other path-unsafe characters with `-`. Branch names routinely contain slashes (`plan/<slug>`, `feature/<name>`); a raw `/` would be read as a path separator and either fail the write or scatter the file into an unintended subdirectory. Write only one file inside `handoffs/`; do not create nested paths from the branch name.
 
 **After writing, print the absolute path on its own line, prominently.** The next session cannot find this file unless you surface where it is — closing that loop is the whole point. The user resumes by starting a fresh session and pasting: "read `<path>` and continue."
 
 ## How to resume
 
-When a user asks you to resume from a handoff, read the requested handoff path first. For one transition period after the move from OS temp storage, support the old location as a fallback:
-
-- If the requested file is missing and its basename starts with `handoff-`, try `<workspace>/handoffs/<basename>` first.
-- If that is also missing, attempt one legacy temp lookup by the same basename: POSIX `${TMPDIR:-/tmp}`; Windows `$env:TEMP`.
-- Report which path you actually read, or say that both the repo-local and legacy temp locations were missing.
-
-Do not write new handoffs to the OS temp directory. The fallback is read-only and only exists so old `/tmp` or macOS `/var/folders/.../T/` handoff paths can survive the transition.
+When a user asks you to resume from a handoff, read the requested handoff path first. If the requested file is missing and its basename starts with `handoff-`, try `<workspace>/handoffs/<basename>`; report which path you actually read, or say the file was missing. Never write a handoff to the OS temp directory.
 
 ## What to include
 

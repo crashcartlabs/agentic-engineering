@@ -159,6 +159,17 @@ and deciding that the toolbelt should own it.
 Provider-generated files are not a second source of truth. Regenerate them from the
 canonical prompt or skill metadata and verify with `agentic check`.
 
+## Public snapshot posture
+
+This public repository is a curated snapshot: development happens in a private
+repository, and public `main` is periodically replaced by a single squashed
+"public snapshot" commit (see [docs/publishing.md](docs/publishing.md)). Issues and
+pull requests are welcome as feedback, but be aware that fixes land in the private
+repository first and arrive here with the next snapshot — a public PR may be ported
+rather than merged directly, and public branch history should not be treated as
+durable. See [CONTRIBUTING.md](CONTRIBUTING.md) for the gate to run before proposing
+changes and [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
+
 ## Safety model
 
 Git worktrees provide concurrency isolation, not host security. Agent bypass flags,

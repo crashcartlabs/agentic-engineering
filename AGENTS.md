@@ -10,7 +10,7 @@
 
 The biggest source of bad model-written code is writing before reading the codebase. Read the files you are about to touch; read, not skim. Copy the patterns that already exist, and check the imports to see what the project actually depends on, so you do not reach for axios where everything is fetch. When you cannot find a pattern, ask instead of guessing. When a research pass is wide enough to bloat your own context—a broad codebase sweep or a multi-file investigation—delegate it to a fresh-context subagent when the active harness supports that safely, then work from its distilled result.
 
-This applies to third-party dependencies too: when a package's actual behavior is not clear from its public API or docs, do not guess from training data. `opensrc` (installed globally on this machine—`opensrc path <package>`) fetches and caches a package's real source from npm, PyPI, crates.io, or GitHub, so you can read or grep the actual implementation, for example `rg "parse" $(opensrc path zod)` in a POSIX shell.
+This applies to third-party dependencies too: when a package's actual behavior is not clear from its public API or docs, do not guess from training data. If `opensrc` is available (`opensrc path <package>`), use it — it fetches and caches a package's real source from npm, PyPI, crates.io, or GitHub, so you can read or grep the actual implementation, for example `rg "parse" $(opensrc path zod)` in a POSIX shell. Without it, read the installed package's source directly (`node_modules/`, the venv's `site-packages/`, or the registry's source tarball).
 
 ## II. Think Before You Code
 
@@ -27,6 +27,8 @@ Your diff should be as small as the task allows. Do not touch what you were not 
 ## V. Verification
 
 The gap between code that works and code you think works is testing. For behavioral changes, write the test first. When fixing a bug, write the failing test, watch it fail, then fix it; that is the only proof you fixed the cause and not the symptom. Test behavior that can actually break, not that a constructor sets a field. If something is hard to test, that is information about the design, not permission to skip it.
+
+**This repository's gate.** The full gate is `python3 scripts/ci/check_all.py` (`agentic gate`); CI additionally runs a secret-scan job (pinned trufflehog over a `git archive HEAD` extract, `--no-update --no-verification`, stdout suppressed, exit code gating). A change is not verified until both are green. PRs in this repository request the configured automated review after shipping (`gh pr comment <n> --body "@codex - Please review PR"`).
 
 ## VI. Goal-Driven Execution
 

@@ -91,7 +91,7 @@ Two independent checks, both cross-platform because they are git's own tools:
 - **Re-run the repo's gate.** A conflict resolution is a behavioral change (§V) — run the
   checks the repo itself expects and make them green before continuing. Discover the gate
   the same way `/commit` does (hooks, package scripts, CONTRIBUTING, CI); don't duplicate
-  that logic here. In this meta-repo that gate is `python3 scripts/ci/check_all.py`.
+  that logic here.
 
 ## 6. Finish — with the operation's own tool
 

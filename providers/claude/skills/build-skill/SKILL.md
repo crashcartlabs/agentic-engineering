@@ -129,7 +129,7 @@ the mechanical gate: `check-skill <skill-dir>` if installed, else walk
 uses these; here is what they mean).** A scenario is **live-verified** only when *its own
 Input fixture was actually run through the skill and its Verify clause observed*. It is
 **design-verified** when traced against the skill's steps by inspection, not run. The trap
-to avoid (it recurred seven times in one 2026-07-05 review): a verdict or output that
+to avoid (it recurs in review after review): a verdict or output that
 appeared via a **different** fixture, or a scenario **sub-path** that was never exercised
 (a delegated fix, a re-arm, an error branch), is **not** live-verified for that scenario —
 it is design-verified, with a one-line note saying which part ran. Match the evidence to
