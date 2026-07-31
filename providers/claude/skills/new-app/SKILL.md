@@ -48,7 +48,11 @@ Fill the generated `AGENTS.md` with facts discovered from the target repository:
 and record only commands the repository itself names:
 
 1. **CI workflow files** (`.github/workflows/`, or the platform's equivalent) — the
-   ground truth: whatever CI runs is by definition the repo's real gate.
+   ground truth for **PR validation**: the lint/test/build/scan jobs that gate a
+   pull request are the repo's real gate. **Exclude deployment, publishing, and
+   release jobs** — they run on their own triggers with their own credentials, and
+   an `AGENTS.md` that names them as local commands either blocks the gate
+   (missing secrets) or deploys from a workstation.
 2. **Package/build manifests** — `package.json` scripts, `pyproject.toml` /
    `Makefile` / `justfile` / `Taskfile` targets, and the lockfile (which also pins
    the package manager: `pnpm-lock.yaml` means `pnpm run …`, not `npm run …`).

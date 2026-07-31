@@ -262,9 +262,10 @@ reviewed-content SHA when the shipped SHA is an evidence-artifact-only report co
 - Print the PR URL and close with the pointer: run `/babysitting-pr <n>` to keep it
   merge-ready — a suggestion for the human, never an auto-invoke.
 
-**Completion criterion:** PR URL and review-request comment URL both printed, and the
-run stated explicitly that the PR was **shipped** (vs. every refusal above, which
-states **not shipped**).
+**Completion criterion:** PR URL printed — plus the review-request comment URL when
+the repository has an automated reviewer configured (a repo without one skips that
+request and can still ship) — and the run stated explicitly that the PR was
+**shipped** (vs. every refusal above, which states **not shipped**).
 
 ## Hard rules
 

@@ -23,6 +23,7 @@
   ],
   "judge": {
     "enabled": true,
+    "required": true,
     "rubric": "Judge the commit that was created: (1) its message subject describes the src.txt behavior change specifically, not generically ('update files' fails); (2) the untracked scratch note was not silently swept into the commit unless the transcript shows a deliberate decision; (3) the transcript verifies the landed commit rather than assuming success."
   }
 }

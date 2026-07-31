@@ -48,8 +48,12 @@ Scenario schema (schemaVersion 1):
          "expect_empty_output": true, "expect_output": null},
         {"type": "git_clean"}
       ],
-      "judge": {"enabled": false, "rubric": "…"}
+      "judge": {"enabled": false, "required": false, "rubric": "…"}
     }
+
+A judge marked `"required": true` gates promotion: the scenario's deterministic
+checks still decide pass/fail, but the skill-level live-verified suggestion is
+withheld until a passing judge verdict exists for that scenario.
 
 The declared `skill` must match the directory the file lives under and `scenario`
 must match the file stem — evidence filenames and promotion suggestions are derived
@@ -330,6 +334,7 @@ def run_scenario(
         "skill": scenario["skill"],
         "scenario": scenario["scenario"],
         "provider": provider,
+        "judge_required": bool(scenario.get("judge", {}).get("required")),
         "injected_skill_source": injected_skill_source,
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "provider_exit_code": result.exit_code,
@@ -353,6 +358,33 @@ def run_scenario(
     return evidence
 
 
+def promotion_ready(records: list[dict], total_scenarios: int) -> tuple[bool, str]:
+    """Whether this run's evidence can back a skill-level live-verified suggestion."""
+    if not records or not all(record["passed"] for record in records):
+        return False, "not every scenario passed"
+    if len(records) < total_scenarios:
+        # Promoting from a subset would contradict the maturity contract (mixed
+        # exercised/design-only scenarios = partially-live).
+        return False, (
+            f"only {len(records)} of {total_scenarios} committed scenarios ran — "
+            "partial coverage; run without a scenario filter for full coverage"
+        )
+    pending = [
+        record["scenario"]
+        for record in records
+        if record.get("judge_required")
+        and (record["judge"] is None or record["judge"]["verdict"] is not True)
+    ]
+    if pending:
+        # A scenario whose contract lives partly in its rubric (e.g. commit-message
+        # quality) is promotion-grade only with a passing judge verdict.
+        return False, (
+            "judge-required scenario(s) lack a passing judge verdict "
+            f"(rerun with --judge): {', '.join(pending)}"
+        )
+    return True, ""
+
+
 def print_summary(records: list[dict], provider: str, total_scenarios: int) -> None:
     for record in records:
         verdict = "PASS" if record["passed"] else "FAIL"
@@ -365,14 +397,9 @@ def print_summary(records: list[dict], provider: str, total_scenarios: int) -> N
     if provider == "fake" or not records or not all(record["passed"] for record in records):
         return
     skill = records[0]["skill"]
-    if len(records) < total_scenarios:
-        # Promoting a skill to live-verified from a subset would contradict the
-        # maturity contract (mixed exercised/design-only scenarios = partially-live).
-        print(
-            f"\nSelected scenarios green, but only {len(records)} of {total_scenarios} "
-            f"committed scenarios ran — partial coverage, no promotion suggestion. "
-            f"Run `agentic eval {skill}` without a scenario filter for full coverage."
-        )
+    ready, reason = promotion_ready(records, total_scenarios)
+    if not ready:
+        print(f"\nSelected scenarios green, but no promotion suggestion: {reason}.")
         return
     date = datetime.date.today().isoformat()
     lines = [
@@ -578,6 +605,21 @@ def selftest() -> int:
             failures.append("claude skill injection did not copy the generated adapter")
         if "providers" not in injected:
             failures.append(f"injection source is not the generated adapter: {injected}")
+
+        green = {"passed": True, "judge_required": False, "judge": None, "scenario": "a"}
+        judged = {
+            "passed": True,
+            "judge_required": True,
+            "judge": {"verdict": True, "exit_code": 0},
+            "scenario": "b",
+        }
+        unjudged = {"passed": True, "judge_required": True, "judge": None, "scenario": "b"}
+        if promotion_ready([green], 2)[0]:
+            failures.append("partial coverage was declared promotion-ready")
+        if promotion_ready([green, unjudged], 2)[0]:
+            failures.append("an unjudged judge-required scenario was declared promotion-ready")
+        if not promotion_ready([green, judged], 2)[0]:
+            failures.append("a fully green, fully judged run was not promotion-ready")
 
         try:
             fixture_path(base, "../escape.txt")
