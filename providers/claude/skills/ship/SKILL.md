@@ -54,11 +54,14 @@ a refusal that names the failed check and the fix.
 ## Step 2 — Discover the gate
 
 Discover the repo's gate the way `/commit` does — hook manager, manifest scripts
-(`lint` / `typecheck` / `test`), CONTRIBUTING, CI config. CI is the ground truth —
-enumerate **every** CI job's commands, including secret scans and any job beyond the
-lint one; a gate that reproduces only one of the CI jobs is not the gate. If every
-source comes up empty, ask the user for the command(s) once — do not ship an evidence
-PR with no evidence to put in it.
+(`lint` / `typecheck` / `test`), CONTRIBUTING, CI config. CI is the ground truth for
+**PR validation**: enumerate every job that gates a pull request — lint, tests,
+builds, secret scans — not just the lint job; a gate that reproduces only one of the
+validation jobs is not the gate. **Deployment, publishing, and release jobs are not
+part of the local gate**: they run on their own triggers with their own credentials,
+and running them locally would either block shipping (missing secrets/runners) or
+actually deploy from a workstation. If every source comes up empty, ask the user for
+the command(s) once — do not ship an evidence PR with no evidence to put in it.
 
 **Completion criterion:** a written list of gate commands (≥1), each runnable as-is.
 

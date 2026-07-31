@@ -372,13 +372,19 @@ def print_summary(records: list[dict], provider: str, total_scenarios: int) -> N
         )
         return
     date = datetime.date.today().isoformat()
-    print(
-        "\nAll scenarios green. Suggested promotion (manual — the runner never edits "
-        "toolbelt.json):\n"
-        f'  - toolbelt.json skillMaturity."{skill}": consider "live-verified"\n'
-        f"  - skills/{skill}/tests.md evidence line: "
-        f'"Live-verified via eval {pathlib.Path(records[0]["evidence_path"]).name} on {date}."'
-    )
+    lines = [
+        "",
+        "All scenarios green. Suggested promotion (manual — the runner never edits "
+        "toolbelt.json):",
+        f'  - toolbelt.json skillMaturity."{skill}": consider "live-verified"',
+        f"  - skills/{skill}/tests.md evidence lines (one per scenario):",
+    ]
+    for record in records:
+        lines.append(
+            f'      "Scenario {record["scenario"]!r} live-verified via eval '
+            f'{pathlib.Path(record["evidence_path"]).name} on {date}."'
+        )
+    print("\n".join(lines))
 
 
 def selftest() -> int:
@@ -460,6 +466,25 @@ def selftest() -> int:
         )
         if record["passed"]:
             failures.append("failing check was reported as passed")
+
+        hanging_script = base / "hanging_agent.py"
+        hanging_script.write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
+        hung = dict(scenario)
+        hung["scenario"] = "framework-timeout"
+        hung["checks"] = [{"type": "file_exists", "path": "seed.txt"}]  # satisfied by baseline
+        record = run_scenario(
+            hung,
+            provider="fake",
+            timeout=1,
+            judge=False,
+            bypass_permissions=False,
+            fake_script=hanging_script,
+            results_dir=base / "results",
+        )
+        if record["passed"] or "timed out" not in record["transcript_tail"]:
+            failures.append(
+                f"provider timeout did not record failed evidence: passed={record['passed']!r}"
+            )
 
         crashing_script = base / "crashing_agent.py"
         crashing_script.write_text("import sys\nsys.exit(7)\n", encoding="utf-8")

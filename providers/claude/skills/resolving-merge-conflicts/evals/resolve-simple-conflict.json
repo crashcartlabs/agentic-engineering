@@ -26,6 +26,8 @@
     {"type": "command", "argv": ["git", "grep", "-q", "<<<<<<<", "HEAD", "--", "notes.txt"], "expect_exit": 1},
     {"type": "command", "argv": ["git", "grep", "-q", ">>>>>>>", "HEAD", "--", "notes.txt"], "expect_exit": 1},
     {"type": "command", "argv": ["git", "rev-parse", "-q", "--verify", "MERGE_HEAD"], "expect_exit": 1},
+    {"type": "command", "argv": ["git", "rev-parse", "-q", "--verify", "HEAD^2"], "expect_exit": 0},
+    {"type": "command", "argv": ["git", "merge-base", "--is-ancestor", "feature", "HEAD"], "expect_exit": 0},
     {"type": "git_clean"}
   ],
   "judge": {

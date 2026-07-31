@@ -24,7 +24,6 @@ from __future__ import annotations
 import argparse
 import datetime
 import pathlib
-import re
 import shutil
 import subprocess
 import sys
@@ -45,7 +44,11 @@ def reset_files(today: str) -> dict[str, str]:
             "**Focus:** Public snapshot of the Agentic Engineering toolbelt.\n"
         ),
         "LESSONS.md": "# LESSONS\n",
-        "TODO.md": "# TODO\n",
+        "TODO.md": (
+            "# TODO\n\n"
+            "The backlog lives in GitHub issues (AGENTS.md §XIV); this file holds only unfiled\n"
+            "temporary scratch, and is empty when nothing is pending filing.\n"
+        ),
     }
 
 
@@ -117,16 +120,27 @@ def selftest() -> int:
     today = "2026-01-01"
     files = reset_files(today)
     failures: list[str] = []
-    if f"## {today}" not in files["DEVLOG.md"] or "**Focus:**" not in files["DEVLOG.md"]:
-        failures.append("DEVLOG reset is missing a dated entry with a Focus section")
-    if not files["LESSONS.md"].startswith("# LESSONS"):
-        failures.append("LESSONS reset is missing its header")
-    if files["TODO.md"] != "# TODO\n":
-        failures.append("TODO reset deviates from its expected bare header")
-    # The reset files must carry no repository handles or account references of
-    # any kind; the sediment lint and the CI secret scan cover the wider tree.
-    if re.search(r"[A-Za-z0-9-]+@|github\.com/", "".join(files.values())):
-        failures.append("reset files contain an account handle or repository URL")
+    # Exact expected contents, not substring probes: any drift in a reset file —
+    # including a bare private handle that no URL/handle regex would catch — fails
+    # here without this check ever having to name a private sentinel.
+    expected = {
+        "DEVLOG.md": (
+            "# Development Log\n\n"
+            f"## {today} — Initial public release\n\n"
+            "**Focus:** Public snapshot of the Agentic Engineering toolbelt.\n"
+        ),
+        "LESSONS.md": "# LESSONS\n",
+        "TODO.md": (
+            "# TODO\n\n"
+            "The backlog lives in GitHub issues (AGENTS.md §XIV); this file holds only unfiled\n"
+            "temporary scratch, and is empty when nothing is pending filing.\n"
+        ),
+    }
+    for name, content in expected.items():
+        if files.get(name) != content:
+            failures.append(f"{name} reset deviates from its expected exact content")
+    if set(files) != set(expected):
+        failures.append(f"reset file set changed: {sorted(files)} != {sorted(expected)}")
     print("publish_public selftest:", "OK" if not failures else "FAIL")
     for failure in failures:
         print(f"  - {failure}")

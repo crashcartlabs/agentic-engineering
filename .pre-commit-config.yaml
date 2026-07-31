@@ -2,11 +2,14 @@ repos:
   - repo: local
     hooks:
       - id: agentic-engineering-gate
-        name: agentic engineering gate (index source)
-        # language: system — a local python-language hook would `pip install .`,
-        # which this non-package repo cannot satisfy; `python` resolves on all
-        # three OSes in any environment that can run the gate at all.
-        entry: python scripts/ci/check_all.py --index --quick
-        language: system
+        name: agentic engineering gate (index source, quick)
+        # language: script runs the repo's own interpreter-probing wrapper, so the
+        # hook works on POSIX systems that expose only `python3` (stock macOS and
+        # modern Ubuntu) without pre-commit trying to pip-install this non-package
+        # repo. Native-Windows pre-commit should run the gate via
+        # scripts\ci\run_gate.cmd --index --quick instead.
+        entry: scripts/ci/run_gate
+        args: [--index, --quick]
+        language: script
         pass_filenames: false
         always_run: true

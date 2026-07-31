@@ -91,15 +91,20 @@ def _run_claude(
         command.append("--dangerously-skip-permissions")
     else:
         command.extend(["--permission-mode", "acceptEdits"])
-    proc = subprocess.run(
-        command,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-        env=_provider_env(path_prepend),
-    )
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            env=_provider_env(path_prepend),
+        )
+    except subprocess.TimeoutExpired:
+        # A hung live agent is a failed run, not a broken harness: surface it as
+        # nonzero-exit evidence so the scenario records FAIL instead of a traceback.
+        return ProviderResult(124, f"provider timed out after {timeout}s")
     return ProviderResult(proc.returncode, proc.stdout + ("\n" + proc.stderr if proc.stderr else ""))
 
 
@@ -115,17 +120,20 @@ def _run_fake(
         raise EvalError("the fake provider needs a fake_script path (framework tests only)")
     if not fake_script.is_file():
         raise EvalError(f"fake_script does not exist: {fake_script}")
-    proc = subprocess.run(
-        [sys.executable, str(fake_script)],
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-        env={
-            **_provider_env(path_prepend),
-            "AGENTIC_EVAL_PROMPT": prompt,
-            "PYTHONDONTWRITEBYTECODE": "1",
-        },
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(fake_script)],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            env={
+                **_provider_env(path_prepend),
+                "AGENTIC_EVAL_PROMPT": prompt,
+                "PYTHONDONTWRITEBYTECODE": "1",
+            },
+        )
+    except subprocess.TimeoutExpired:
+        return ProviderResult(124, f"provider timed out after {timeout}s")
     return ProviderResult(proc.returncode, proc.stdout + ("\n" + proc.stderr if proc.stderr else ""))
