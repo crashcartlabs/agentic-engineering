@@ -23,6 +23,8 @@
     {"type": "command", "argv": ["git", "diff", "--check", "HEAD"], "expect_exit": 0},
     {"type": "file_contains", "path": "notes.txt", "pattern": "main-change line"},
     {"type": "file_contains", "path": "notes.txt", "pattern": "feature-change line"},
+    {"type": "command", "argv": ["git", "grep", "-q", "<<<<<<<", "HEAD", "--", "notes.txt"], "expect_exit": 1},
+    {"type": "command", "argv": ["git", "grep", "-q", ">>>>>>>", "HEAD", "--", "notes.txt"], "expect_exit": 1},
     {"type": "command", "argv": ["git", "rev-parse", "-q", "--verify", "MERGE_HEAD"], "expect_exit": 1},
     {"type": "git_clean"}
   ],

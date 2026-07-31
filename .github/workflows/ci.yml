@@ -28,7 +28,11 @@ jobs:
         with:
           python-version: "3.9"
       # Single source of truth: the same command a human runs locally before pushing.
+      # AGENTIC_SEDIMENT_EXTRA feeds the sediment lint's exact-token denylist; the
+      # secret is optional and the env var is simply empty when it is not configured.
       - name: Run lints
+        env:
+          AGENTIC_SEDIMENT_EXTRA: ${{ secrets.AGENTIC_SEDIMENT_EXTRA }}
         run: python scripts/ci/check_all.py
 
   secret-scan:

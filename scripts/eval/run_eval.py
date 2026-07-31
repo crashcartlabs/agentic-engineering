@@ -31,6 +31,7 @@ Scenario schema (schemaVersion 1):
       "fixture": {
         "files": {"relative/path.txt": "content"},
         "git": true,
+        "shadow_commands": ["agentic"],
         "setup": [
           ["git", "checkout", "-b", "feature"],
           {"write": {"path": "file.txt", "content": "..."}},
@@ -132,6 +133,30 @@ def build_fixture(scenario: dict, root: pathlib.Path) -> None:
         proc = subprocess.run(argv, cwd=root, capture_output=True, text=True, timeout=120, check=False)
         if check and proc.returncode:
             raise EvalError(f"setup step failed ({' '.join(argv)}): {(proc.stderr or proc.stdout).strip()}")
+
+
+def build_shadow_commands(root: pathlib.Path, names: list[str]) -> pathlib.Path:
+    """Create PATH-shadowing stubs so named commands genuinely cannot succeed.
+
+    A scenario that claims a tool is unavailable must make that true — the provider
+    subprocess otherwise inherits the caller's PATH, where e.g. the `agentic`
+    launcher normally resolves. Stubs are written for both POSIX (sh script) and
+    Windows (.cmd), print an unavailability notice, and exit 127.
+    """
+    bin_dir = root / ".eval-bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        posix_stub = bin_dir / name
+        posix_stub.write_text(
+            f'#!/bin/sh\necho "{name}: command unavailable in this eval fixture" >&2\nexit 127\n',
+            encoding="utf-8",
+        )
+        posix_stub.chmod(0o755)
+        (bin_dir / f"{name}.cmd").write_text(
+            f"@echo {name}: command unavailable in this eval fixture 1>&2\r\n@exit /b 127\r\n",
+            encoding="utf-8",
+        )
+    return bin_dir
 
 
 def inject_claude_skill(skill: str, root: pathlib.Path) -> str:
@@ -259,6 +284,8 @@ def run_scenario(
             # Before the baseline commit, so git_clean checks stay valid. The codex
             # and pi adapters must do the equivalent when they are implemented.
             injected_skill_source = inject_claude_skill(scenario["skill"], root)
+        shadow_names = scenario.get("fixture", {}).get("shadow_commands", [])
+        path_prepend = build_shadow_commands(root, shadow_names) if shadow_names else None
         build_fixture(scenario, root)
         result = run_provider(
             provider,
@@ -267,6 +294,7 @@ def run_scenario(
             timeout=timeout,
             bypass_permissions=bypass_permissions,
             fake_script=fake_script,
+            path_prepend=path_prepend,
         )
         checks = []
         for check in scenario["checks"]:
@@ -495,6 +523,27 @@ def selftest() -> int:
             pass
         else:
             failures.append("mismatched scenario identity did not raise EvalError")
+
+        probe_script = base / "probe_agent.py"
+        probe_script.write_text(
+            "import shutil, sys\nsys.exit(0 if shutil.which('agentic-eval-probe') else 3)\n",
+            encoding="utf-8",
+        )
+        shadowed = dict(scenario)
+        shadowed["scenario"] = "framework-shadow"
+        shadowed["fixture"] = {"files": {}, "shadow_commands": ["agentic-eval-probe"]}
+        shadowed["checks"] = []
+        record = run_scenario(
+            shadowed,
+            provider="fake",
+            timeout=60,
+            judge=False,
+            bypass_permissions=False,
+            fake_script=probe_script,
+            results_dir=base / "results",
+        )
+        if not record["passed"]:
+            failures.append("shadow command stub was not resolvable on the provider PATH")
 
         injected = inject_claude_skill("spec", base / "inject-fixture")
         if not (base / "inject-fixture" / ".claude" / "skills" / "spec" / "SKILL.md").is_file():

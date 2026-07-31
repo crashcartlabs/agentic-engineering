@@ -17,7 +17,8 @@
   "checks": [
     {"type": "command", "argv": ["git", "rev-list", "--count", "HEAD"], "expect_exit": 0, "expect_output": "2"},
     {"type": "command", "argv": ["git", "diff", "HEAD", "--", "src.txt"], "expect_exit": 0, "expect_empty_output": true},
-    {"type": "file_exists", "path": "notes.txt"}
+    {"type": "file_exists", "path": "notes.txt"},
+    {"type": "command", "argv": ["git", "ls-tree", "HEAD", "--", "notes.txt"], "expect_exit": 0, "expect_empty_output": true}
   ],
   "judge": {
     "enabled": true,

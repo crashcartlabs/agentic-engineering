@@ -6,9 +6,10 @@
     "files": {
       "README.md": "# Sample App\n\nA plain repository with no workflow files yet.\n"
     },
-    "git": true
+    "git": true,
+    "shadow_commands": ["agentic"]
   },
-  "prompt": "Use the new-app skill to bootstrap this repository into the agentic engineering workflow. Note: the `agentic` launcher is NOT installed in this environment and must not be substituted — follow the skill's rule for that case.",
+  "prompt": "Use the new-app skill to bootstrap this repository into the agentic engineering workflow.",
   "checks": [
     {"type": "file_absent", "path": "AGENTS.md"},
     {"type": "file_absent", "path": "CLAUDE.md"},

@@ -3,7 +3,10 @@ repos:
     hooks:
       - id: agentic-engineering-gate
         name: agentic engineering gate (index source)
+        # language: system — a local python-language hook would `pip install .`,
+        # which this non-package repo cannot satisfy; `python` resolves on all
+        # three OSes in any environment that can run the gate at all.
         entry: python scripts/ci/check_all.py --index --quick
-        language: python
+        language: system
         pass_filenames: false
         always_run: true

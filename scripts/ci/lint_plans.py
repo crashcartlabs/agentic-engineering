@@ -63,13 +63,46 @@ RESIDUE_TOKENS = (
 
 CODE_SPAN = re.compile(r"`[^`]+`")
 
+# Per-phase TDD contract (plan SKILL.md "Mark each phase's TDD discipline"): every
+# implementation phase carries exactly one `**TDD:**` line reading `strict` or
+# `none — <reason>`, so the executor never guesses the testing contract.
+PHASE_HEADING = re.compile(r"^###\s+Phase\b")
+SECTION_HEADING = re.compile(r"^#{2,3}\s")
+TDD_LINE = re.compile(r"^\*\*TDD:\*\*\s*(.*)$")
+TDD_VALID = re.compile(r"^(strict|none\s*[—-]\s*\S.*)$")
+
 
 def check_plan(name: str, text: str, errors: list[str]) -> None:
     """Append a finding for every metadata-row violation or residue token in one plan."""
     seen: set[str] = set()
     values: dict[str, tuple[str, int]] = {}
+    phase: tuple[str, int] | None = None  # (heading text, lineno) of the open phase
+    phase_tdd = 0
+
+    def close_phase() -> None:
+        nonlocal phase, phase_tdd
+        if phase is not None and phase_tdd == 0:
+            errors.append(f"{name}:{phase[1]}: {phase[0]!r} has no **TDD:** marker (strict or none — <reason>)")
+        if phase is not None and phase_tdd > 1:
+            errors.append(f"{name}:{phase[1]}: {phase[0]!r} has {phase_tdd} **TDD:** markers; expected one")
+        phase, phase_tdd = None, 0
+
     for i, line in enumerate(text.splitlines()):
         lineno = i + 1
+        if PHASE_HEADING.match(line):
+            close_phase()
+            phase = (line.strip(), lineno)
+        elif SECTION_HEADING.match(line):
+            close_phase()
+        elif phase is not None:
+            tdd = TDD_LINE.match(line)
+            if tdd:
+                phase_tdd += 1
+                if not TDD_VALID.match(tdd.group(1).strip()):
+                    errors.append(
+                        f"{name}:{lineno}: **TDD:** marker must be 'strict' or 'none — <reason>' "
+                        f"— got {tdd.group(1).strip()!r}"
+                    )
         m = META_ROW.match(line)
         if m:
             field, value = m.group(1), m.group(2).strip()
@@ -99,6 +132,7 @@ def check_plan(name: str, text: str, errors: list[str]) -> None:
         for token in RESIDUE_TOKENS:
             if token in stripped:
                 errors.append(f"{name}:{lineno}: unfilled template token {token!r}")
+    close_phase()
     for field in META_FIELDS:
         if field not in seen:
             errors.append(f"{name}: metadata row **{field}** is missing")
@@ -164,6 +198,22 @@ CLEAN_FIXTURE = """\
 The executor works on a plan/<slug> branch; reports go to
 reviews/<YYYY-MM-DD>-<plan-slug>.md under <git-common-dir>. A quoted token like
 `<placeholder>` or the row `| **Created** | <YYYY-MM-DD> |` is prose, not residue.
+
+## Implementation phases
+
+### Phase 1 — build the behavior
+
+- [x] 1.1 write the failing test, then the code
+
+**TDD:** strict
+**Validation:** run the test file.
+
+### Phase 2 — regenerate artifacts
+
+- [x] 2.1 rerun the generator
+
+**TDD:** none — generated files, covered by the drift check
+**Validation:** generator check passes.
 """
 
 LEFTOVER_FIXTURE = """\
@@ -208,6 +258,13 @@ LEFTOVER_FIXTURE = """\
 - [ ] 1.1 <task>
 
 **Validation:** <how this phase proves itself — commands to run, behavior to observe.>
+
+### Phase 2 — has a bad marker
+
+- [ ] 2.1 <task>
+
+**TDD:** whenever convenient
+**Validation:** <...>
 
 ## Risks & rollback
 
@@ -262,6 +319,8 @@ LEFTOVER_EXPECTED = (
     "unfilled template token '<every open/write/delete/rename/exec call that can affect it>'",
     "unfilled template token '<each check-before-use, TOCTOU window, or \"none\">'",
     "unfilled template token '<who can write/read/replace inputs, paths, configs, pidfiles, temp files>'",
+    "has no **TDD:** marker",
+    "**TDD:** marker must be 'strict' or 'none",
 )
 
 

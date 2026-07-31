@@ -94,7 +94,11 @@ def publish(remote: str, ref: str, dry_run: bool, today: str) -> int:
             # Keep the built tree around for inspection by copying it out of the
             # soon-to-be-deleted temp dir.
             out = REPO / ".public-snapshot-dryrun"
-            if out.exists():
+            # rm -rf equivalence: the leftover may be a file or symlink, which
+            # rmtree refuses; only a real directory takes the tree removal.
+            if out.is_symlink() or out.is_file():
+                out.unlink()
+            elif out.exists():
                 shutil.rmtree(out)
             # symlinks=True preserves tracked symlinks as links (the prior `cp -r`
             # behavior); the default would dereference them, making the inspection
