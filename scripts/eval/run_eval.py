@@ -251,9 +251,12 @@ def run_check(check: dict, root: pathlib.Path, transcript: str) -> tuple[bool, s
         target = fixture_path(root, check["path"])
         return target.exists(), f"file_exists {check['path']}"
     if kind == "file_absent":
-        fixture_path(root, check["path"])  # containment validation only
-        # Inspect the lexical path: a dangling symlink at the forbidden location
-        # is an artifact too, and resolve()+exists() would miss it.
+        # Lexical containment only — never resolve: a symlink the provider
+        # planted at the forbidden path may point outside the fixture, and
+        # resolving it would raise instead of recording the failed check.
+        rel = pathlib.PurePosixPath(check["path"])
+        if rel.is_absolute() or ".." in rel.parts:
+            raise EvalError(f"file_absent path escapes the fixture: {check['path']!r}")
         target = root / check["path"]
         return not (target.exists() or target.is_symlink()), f"file_absent {check['path']}"
     if kind == "file_contains":
@@ -379,6 +382,8 @@ def validate_scenario_shape(path: pathlib.Path, scenario: dict) -> None:
         isinstance(k, str) and isinstance(v, str) for k, v in files.items()
     ):
         raise EvalError(f"{path}: fixture.files must map string paths to string contents")
+    if not isinstance(fixture.get("setup", []), list):
+        raise EvalError(f"{path}: fixture.setup must be a list")
     reserved = (".claude/", ".claude\\", ".eval-bin/", ".eval-bin\\")
     write_paths = list(files) + [
         step["write"]["path"]

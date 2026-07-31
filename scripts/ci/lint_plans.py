@@ -81,6 +81,7 @@ def check_plan(name: str, text: str, errors: list[str]) -> None:
     values: dict[str, tuple[str, int]] = {}
     phase: tuple[str, int] | None = None  # (heading text, lineno) of the open phase
     phase_tdd = 0
+    phase_count = 0
 
     def close_phase() -> None:
         nonlocal phase, phase_tdd
@@ -109,10 +110,14 @@ def check_plan(name: str, text: str, errors: list[str]) -> None:
                 # ```python opener shown inside an outer ```markdown example is
                 # content, not the outer block's close.
                 fence = None
-        elif fence is None:
+        else:
+            in_content = fence is None
+            if not in_content:
+                continue
             if PHASE_HEADING.match(line):
                 close_phase()
                 phase = (line.strip(), lineno)
+                phase_count += 1
             elif PHASE_HEADING_ANY.match(line):
                 close_phase()
                 errors.append(
@@ -181,6 +186,12 @@ def check_plan(name: str, text: str, errors: list[str]) -> None:
             errors.append(
                 f"{name}:{branch_line}: {status} **Branch** must be {expected!r} — got {branch!r}"
             )
+    if status in {"approved", "in-progress", "done"} and phase_count == 0:
+        # The executor is phase-driven: an approved plan with no canonical
+        # phases has nothing to run and would read as instantly complete.
+        errors.append(
+            f"{name}: {status} plan has no '### Phase' implementation phases"
+        )
 
 
 def main() -> int:
@@ -358,6 +369,55 @@ MISSING_ROW_FIXTURE = """\
 ## Summary
 
 Everything is filled in, but the Modified row is absent.
+
+## Implementation phases
+
+### Phase 1 — finished work
+
+- [x] 1.1 done task
+
+**TDD:** none — documentation only
+**Validation:** rendered output reviewed.
+"""
+
+# An approved plan with valid metadata but zero canonical phases — pins the
+# phase-requirement rule for executor-bound statuses.
+NO_PHASE_FIXTURE = """\
+# A plan with no phases
+
+| | |
+|---|---|
+| **Status** | approved |
+| **Created** | 2026-07-03 |
+| **Modified** | 2026-07-03 |
+| **Spec** | specs/2026-07-03-some-topic.md |
+| **Branch** | plan/no-phase |
+| **Related plans** | none |
+
+## Summary
+
+Approved, but there is nothing for the executor to run.
+"""
+
+# The metadata table exists only inside a fenced example — it must not satisfy
+# the required-rows contract.
+FENCED_META_FIXTURE = """\
+# A plan whose only metadata is an example
+
+```markdown
+| | |
+|---|---|
+| **Status** | done |
+| **Created** | 2026-07-03 |
+| **Modified** | 2026-07-03 |
+| **Spec** | specs/2026-07-03-some-topic.md |
+| **Branch** | plan/fenced-meta |
+| **Related plans** | none |
+```
+
+## Summary
+
+The fenced table above is documentation, not plan state.
 """
 
 # Each rule must be represented: (substring expected in some finding).
@@ -417,6 +477,16 @@ def selftest() -> int:
     for e in missing_errors:
         if e != expected_missing:
             failures.append(f"missing-row fixture wrongly flagged: {e}")
+
+    no_phase_errors: list[str] = []
+    check_plan("no-phase.md", NO_PHASE_FIXTURE, no_phase_errors)
+    if not any("has no '### Phase' implementation phases" in e for e in no_phase_errors):
+        failures.append("approved zero-phase plan was not flagged")
+
+    fenced_meta_errors: list[str] = []
+    check_plan("fenced-meta.md", FENCED_META_FIXTURE, fenced_meta_errors)
+    if "fenced-meta.md: metadata row **Status** is missing" not in fenced_meta_errors:
+        failures.append("fenced example metadata satisfied the required-rows contract")
 
     if failures:
         print("plan lint selftest: FAIL")

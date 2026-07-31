@@ -25,6 +25,7 @@ import argparse
 import datetime
 import json
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -86,6 +87,36 @@ def build_snapshot(ref: str, workdir: pathlib.Path, today: str) -> pathlib.Path:
     return tree
 
 
+MANIFESTS = ("toolbelt.json", "package.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json")
+
+
+def verify_release_consistency(tree: pathlib.Path) -> str:
+    """Check the exported tree's release contract; return its version.
+
+    The tag preflight alone cannot catch a tagged ref whose manifests disagree
+    or whose changelog lacks the release entry — the snapshot must satisfy the
+    synchronized-release contract (docs/publishing.md) before any force-push.
+    """
+    versions: dict[str, str] = {}
+    for rel in MANIFESTS:
+        path = tree / rel
+        if not path.is_file():
+            raise SystemExit(f"error: {rel} is missing from the exported tree")
+        version = json.loads(path.read_text(encoding="utf-8")).get("version")
+        if not isinstance(version, str) or not version.strip():
+            raise SystemExit(f"error: {rel} in the exported tree has no version")
+        versions[rel] = version
+    if len(set(versions.values())) > 1:
+        raise SystemExit(f"error: manifest version mismatch in the exported tree: {versions}")
+    release = next(iter(versions.values()))
+    changelog = tree / "CHANGELOG.md"
+    if not changelog.is_file() or not re.search(
+        rf"^## \[{re.escape(release)}\]", changelog.read_text(encoding="utf-8"), re.MULTILINE
+    ):
+        raise SystemExit(f"error: exported CHANGELOG.md has no heading for version {release}")
+    return release
+
+
 def verify_release_tag(repo: pathlib.Path, ref: str, version: str) -> None:
     """Require v<version> to exist and point at the exported ref before pushing.
 
@@ -116,19 +147,14 @@ def verify_release_tag(repo: pathlib.Path, ref: str, version: str) -> None:
 
 def publish(remote: str, ref: str, dry_run: bool, today: str) -> int:
     short_sha = resolve_ref(ref)
-    if not dry_run:
-        # Read the version from the exported ref itself — the working tree may
-        # sit on a different (e.g. newer) version than the ref being published.
-        show = subprocess.run(
-            ["git", "show", f"{ref}:toolbelt.json"], cwd=REPO, capture_output=True, text=True
-        )
-        if show.returncode:
-            raise SystemExit(f"error: cannot read toolbelt.json from {ref!r}: {show.stderr.strip()}")
-        version = json.loads(show.stdout)["version"]
-        verify_release_tag(REPO, ref, version)
     with tempfile.TemporaryDirectory(prefix="agentic-publish-") as raw:
         workdir = pathlib.Path(raw)
         tree = build_snapshot(ref, workdir, today)
+        if not dry_run:
+            # Validate the exported tree itself — the working tree may sit on a
+            # different version than the ref being published.
+            version = verify_release_consistency(tree)
+            verify_release_tag(REPO, ref, version)
         run(["git", "init", "-q", "-b", "main"], cwd=tree)
         run(["git", "add", "-A"], cwd=tree)
         run(["git", "commit", "-q", "-m", f"Agentic Engineering — public snapshot ({short_sha})"], cwd=tree)
@@ -180,6 +206,34 @@ def selftest() -> int:
             failures.append(f"{name} reset deviates from its expected exact content")
     if set(files) != set(expected):
         failures.append(f"reset file set changed: {sorted(files)} != {sorted(expected)}")
+
+    with tempfile.TemporaryDirectory(prefix="publish-consistency-selftest-") as raw:
+        tree = pathlib.Path(raw)
+        for rel in MANIFESTS:
+            target = tree / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps({"version": "9.9.9"}), encoding="utf-8")
+        (tree / "CHANGELOG.md").write_text("# Changelog\n\n## [9.9.9] - 2026-01-01\n", encoding="utf-8")
+        try:
+            if verify_release_consistency(tree) != "9.9.9":
+                failures.append("consistent exported tree did not report its version")
+        except SystemExit:
+            failures.append("a consistent exported tree was refused")
+        (tree / "package.json").write_text(json.dumps({"version": "9.9.8"}), encoding="utf-8")
+        try:
+            verify_release_consistency(tree)
+        except SystemExit:
+            pass
+        else:
+            failures.append("a manifest version mismatch in the exported tree was not refused")
+        (tree / "package.json").write_text(json.dumps({"version": "9.9.9"}), encoding="utf-8")
+        (tree / "CHANGELOG.md").write_text("# Changelog\n\nprose mentioning ## [9.9.9] only\n", encoding="utf-8")
+        try:
+            verify_release_consistency(tree)
+        except SystemExit:
+            pass
+        else:
+            failures.append("a missing changelog heading in the exported tree was not refused")
 
     with tempfile.TemporaryDirectory(prefix="publish-selftest-") as raw:
         repo = pathlib.Path(raw)
