@@ -407,10 +407,16 @@ def validate_scenario_shape(path: pathlib.Path, scenario: dict) -> None:
             spec = step["write"]
             if not isinstance(spec, dict) or not isinstance(spec.get("path"), str) or not isinstance(spec.get("content"), str):
                 raise EvalError(f"{path}: setup[{i}].write needs string path and content")
-        elif not isinstance(argv if argv is not None else step, list) or not all(
-            isinstance(part, str) for part in (argv if argv is not None else step)
-        ):
-            raise EvalError(f"{path}: setup[{i}] must be an argv list of strings or a write step")
+        else:
+            candidate = argv if argv is not None else step
+            if (
+                not isinstance(candidate, list)
+                or not candidate
+                or not all(isinstance(part, str) for part in candidate)
+            ):
+                raise EvalError(
+                    f"{path}: setup[{i}] must be a non-empty argv list of strings or a write step"
+                )
     checks = scenario["checks"]
     if not isinstance(checks, list):
         raise EvalError(f"{path}: checks must be a list")

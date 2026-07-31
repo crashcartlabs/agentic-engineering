@@ -70,7 +70,7 @@ PHASE_HEADING = re.compile(r"^###\s+Phase\b")
 # Any other ATX heading (or indented variant) naming a Phase is noncanonical: it
 # would silently escape the per-phase TDD contract, so it is an error, not ignored.
 PHASE_HEADING_ANY = re.compile(r"^\s*#{1,6}\s+Phase\b")
-SECTION_HEADING = re.compile(r"^#{1,6}\s")
+SECTION_HEADING = re.compile(r"^ {0,3}#{1,6}\s")
 TDD_LINE = re.compile(r"^\*\*TDD:\*\*\s*(.*)$")
 TDD_VALID = re.compile(r"^(strict|none\s*[—-]\s*\S.*)$")
 
@@ -329,7 +329,7 @@ LEFTOVER_FIXTURE = """\
 
 - [ ] 5.1 <task>
 
-# Appendix
+  # Appendix (a valid indented heading still closes the phase)
 
 **TDD:** strict
 

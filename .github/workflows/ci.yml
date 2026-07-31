@@ -30,6 +30,9 @@ jobs:
       # Single source of truth: the same command a human runs locally before pushing.
       # AGENTIC_SEDIMENT_EXTRA feeds the sediment lint's exact-token denylist; the
       # secret is optional and the env var is simply empty when it is not configured.
+      # Trust boundary: fork PRs never receive secrets (GitHub default), and
+      # same-repo branches require write access — so the secret is only ever
+      # exposed to code from already-trusted writers.
       - name: Run lints
         env:
           AGENTIC_SEDIMENT_EXTRA: ${{ secrets.AGENTIC_SEDIMENT_EXTRA }}
