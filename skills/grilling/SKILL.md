@@ -42,6 +42,6 @@ plan that survived intact — always an offer, never an auto-run.
 
 ## Hard rules
 
-- Interview only: no code, no plan-writing, no fixes. Route building to `/plan`.
+- Interview only: no code, no plan-writing, no fixes. Route plan writing or revision to `/plan`, and execution of an already-approved plan to `/execute`.
 - One question per turn, each with a recommended answer.
 - Explore the codebase for answerable questions instead of asking them.

@@ -64,6 +64,11 @@ SELFTESTS = (
         "sandbox archive selftest: FAIL",
     ),
     (
+        "publish_public.py --selftest",
+        REPO / "scripts" / "release" / "publish_public.py",
+        "publish_public selftest: FAIL",
+    ),
+    (
         "render_cmux_guide.py --selftest",
         REPO / "scripts" / "docs" / "render_cmux_guide.py",
         "generated docs check: FAIL",

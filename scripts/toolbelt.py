@@ -230,8 +230,11 @@ def validate_source(*, check_generated: bool = True) -> list[str]:
         changelog = REPO / "CHANGELOG.md"
         if not changelog.is_file():
             errors.append("CHANGELOG.md is missing")
-        elif f"## [{release}]" not in changelog.read_text(encoding="utf-8"):
-            errors.append(f"CHANGELOG.md has no entry for version {release}")
+        elif not re.search(
+            rf"^## \[{re.escape(release)}\]", changelog.read_text(encoding="utf-8"), re.MULTILINE
+        ):
+            # Line-anchored: a mention inside prose or an example is not an entry.
+            errors.append(f"CHANGELOG.md has no heading for version {release}")
     return errors
 
 

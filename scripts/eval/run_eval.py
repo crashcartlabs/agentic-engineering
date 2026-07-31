@@ -349,6 +349,8 @@ def load_scenario_file(path: pathlib.Path, skill: str) -> dict:
         raise EvalError(
             f"{path}: declares scenario {scenario['scenario']!r} but the file stem is {path.stem!r}"
         )
+    if not isinstance(scenario["prompt"], str) or not scenario["prompt"].strip():
+        raise EvalError(f"{path}: prompt must be a non-empty string")
     validate_scenario_shape(path, scenario)
     return scenario
 
@@ -463,15 +465,21 @@ def run_scenario(
     results_dir: pathlib.Path = RESULTS_DIR,
     scenario_path: pathlib.Path | None = None,
 ) -> dict:
+    # Capture provenance before the provider runs: a concurrent commit or
+    # scenario edit mid-run must not be recorded as the exercised source.
+    provenance = {
+        **source_revision(),
+        "scenario_sha256": digest_path(scenario_path) if scenario_path else None,
+        "injected_skill_sha256": None,
+    }
     with tempfile.TemporaryDirectory(prefix="agentic-eval-") as raw:
         root = pathlib.Path(raw)
         injected_skill_source = None
-        injected_skill_sha256 = None
         if provider == "claude":
             # Before the baseline commit, so git_clean checks stay valid. The codex
             # and pi adapters must do the equivalent when they are implemented.
             injected_skill_source = inject_claude_skill(scenario["skill"], root)
-            injected_skill_sha256 = digest_path(pathlib.Path(injected_skill_source))
+            provenance["injected_skill_sha256"] = digest_path(pathlib.Path(injected_skill_source))
         shadow_names = scenario.get("fixture", {}).get("shadow_commands", [])
         path_prepend = build_shadow_commands(root, shadow_names) if shadow_names else None
         build_fixture(scenario, root)
@@ -528,11 +536,7 @@ def run_scenario(
         "injected_skill_source": injected_skill_source,
         # Provenance: bind the record to the exact source it exercised, so a
         # later skill/scenario edit makes stale evidence detectable.
-        "source": {
-            **source_revision(),
-            "scenario_sha256": digest_path(scenario_path) if scenario_path else None,
-            "injected_skill_sha256": injected_skill_sha256,
-        },
+        "source": provenance,
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "provider_exit_code": result.exit_code,
         "checks": checks,

@@ -37,8 +37,17 @@ from lint_common import print_lint_epilogue  # noqa: E402
 
 REPO = gittracked.REPO
 
-# Skills deliberately kept machine-specific (macOS cmux, POSIX dashboard).
+# Skills deliberately kept machine-specific (macOS cmux, POSIX dashboard). They
+# are exempt from the PORTABILITY patterns only — leak patterns (private
+# namespaces, internal milestones, this-repo commands) still apply, because
+# installation copies their files to users like any other skill.
 EXEMPT_SKILLS = {"cmux", "dashboard"}
+PORTABILITY_LABELS = {
+    "hardcoded macOS home path",
+    "hardcoded Linux home path",
+    "hardcoded root home path",
+    "hardcoded Windows home path",
+}
 
 SHARED_BASENAME = "shared-pipeline.md"
 
@@ -62,10 +71,14 @@ def extra_literals() -> tuple[str, ...]:
     return tuple(token.strip() for token in raw.split(",") if token.strip())
 
 
-def scan_text(rel: str, text: str, extra: tuple[str, ...]) -> list[str]:
+def scan_text(
+    rel: str, text: str, extra: tuple[str, ...], skip_labels: frozenset[str] = frozenset()
+) -> list[str]:
     errors: list[str] = []
     for lineno, line in enumerate(text.splitlines(), start=1):
         for label, pattern in DENYLIST:
+            if label in skip_labels:
+                continue
             if pattern.search(line):
                 errors.append(f"{rel}:{lineno}: {label} (pattern: {pattern.pattern})")
         for token in extra:
@@ -83,14 +96,13 @@ def shared_pipeline_errors(contents: dict[str, str]) -> list[str]:
     return []
 
 
-def scan_files() -> list[pathlib.Path]:
-    out: list[pathlib.Path] = []
+def scan_files() -> list[tuple[pathlib.Path, frozenset[str]]]:
+    out: list[tuple[pathlib.Path, frozenset[str]]] = []
     for root in ("skills/", "agents/"):
         for path in gittracked.tracked_files(root):
             parts = path.relative_to(REPO).parts
-            if parts[0] == "skills" and len(parts) > 1 and parts[1] in EXEMPT_SKILLS:
-                continue
-            out.append(path)
+            exempt = parts[0] == "skills" and len(parts) > 1 and parts[1] in EXEMPT_SKILLS
+            out.append((path, frozenset(PORTABILITY_LABELS) if exempt else frozenset()))
     return out
 
 
@@ -125,6 +137,11 @@ def selftest() -> int:
         failures.append("extra-literal token was not flagged")
     elif any("hunter2" in hit for hit in hits):
         failures.append("extra-literal match echoed the token")
+    portability_skips = frozenset(PORTABILITY_LABELS)
+    if scan_text("fixture.md", "read /Users/someone/code/app", (), portability_skips):
+        failures.append("portability exemption did not suppress a home-path hit")
+    if not scan_text("fixture.md", "pushed to github.com/mjenkinsx0/private", (), portability_skips):
+        failures.append("portability exemption wrongly suppressed a leak pattern")
     if shared_pipeline_errors({"a": "same", "b": "same"}):
         failures.append("identical shared-pipeline copies were flagged")
     if not shared_pipeline_errors({"a": "same", "b": "different"}):
@@ -162,12 +179,12 @@ def main() -> int:
     errors: list[str] = []
     extra = extra_literals()
     shared: dict[str, str] = {}
-    for path in scan_files():
+    for path, skip_labels in scan_files():
         text = read_text_or_none(path)
         if text is None:
             continue
         rel = path.relative_to(REPO).as_posix()
-        errors.extend(scan_text(rel, text, extra))
+        errors.extend(scan_text(rel, text, extra, skip_labels))
         if path.name == SHARED_BASENAME:
             shared[rel] = text
     errors.extend(shared_pipeline_errors(shared))

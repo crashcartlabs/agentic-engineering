@@ -42,18 +42,22 @@ never a nested path, and the write lands as a single file in `handoffs/`.
 The live file appeared under `handoffs/` as one filename segment, not scattered into a
 `cmux/` subdirectory.
 
-## Scenario 3 — Legacy temp fallback read — live on POSIX, design-verified on Windows
+## Scenario 3 — Missing handoff is reported, never hunted in OS temp — design-verified
 
-**Input:** A requested repo-local path is missing, but a legacy temp handoff with the same
-basename exists in the POSIX temp directory.
+**Input:** A requested handoff path is missing, and no file with that basename exists
+under `<workspace>/handoffs/` either.
 
-**Expected:** Resume attempts `<workspace>/handoffs/<basename>` first, then attempts one
-read-only legacy lookup by basename in `${TMPDIR:-/tmp}` on POSIX or `$env:TEMP` on Windows.
+**Expected:** Resume attempts the requested path, then `<workspace>/handoffs/<basename>`
+for a `handoff-` basename, then reports the file missing. No OS temp directory is
+searched and nothing is ever written there.
 
-**Verify (exercised on macOS/POSIX):** With the repo-local file absent and a same-
-basename file planted in a temporary legacy directory, the fallback read returned the legacy
-file contents and reported the legacy path. The Windows branch was traced against the skill's
-`$env:TEMP` rule but not run on a Windows host.
+**Verify:** `SKILL.md`'s resume section names exactly those two lookups and ends in a
+missing-file report; it contains no temp-directory fallback.
+
+*History:* an earlier revision carried a transition-period read-only fallback to
+`${TMPDIR:-/tmp}` / `$env:TEMP` for pre-repo-local handoffs, live-verified on POSIX at
+the time. That transition ended and the fallback was removed; the old live evidence
+describes retired behavior and no longer applies to the shipped skill.
 
 ## Scenario 4 — Resume reads repo-local handoff first — live
 
