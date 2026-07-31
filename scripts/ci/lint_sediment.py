@@ -43,7 +43,9 @@ SHARED_BASENAME = "shared-pipeline.md"
 DENYLIST: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("private namespace reference", re.compile(r"mjenkins", re.IGNORECASE)),
     ("personal-machine claim", re.compile(r"installed globally on this machine", re.IGNORECASE)),
-    ("hardcoded macOS home path", re.compile(r"/Users/[a-z]")),
+    # First character of a real username — [A-Za-z0-9_] — but not `<`, so doc
+    # placeholders like /Users/<you> stay legal while /Users/Alice is caught.
+    ("hardcoded macOS home path", re.compile(r"/Users/[A-Za-z0-9_]")),
     ("hardcoded Windows home path", re.compile(r"C:\\Users\\", re.IGNORECASE)),
     ("this-repo gate command", re.compile(r"scripts/ci/check_all\.py")),
     ("internal milestone reference", re.compile(r"\bM2-\d\d\b")),
@@ -95,6 +97,7 @@ def selftest() -> int:
         "pushed to github.com/mjenkinsx0/private-repo",
         "opensrc is installed globally on this machine",
         "read /Users/someone/code/app",
+        "read /Users/Alice/code/app",
         "read C:\\Users\\someone\\code\\app",
         "the gate is python3 scripts/ci/check_all.py",
         "revisit the M2-07 checklist",

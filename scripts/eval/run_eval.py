@@ -222,10 +222,13 @@ def judge_prompt(scenario: dict, transcript: str) -> str:
 
 
 def parse_judge_verdict(transcript: str) -> bool | None:
-    matches = re.findall(r"VERDICT:\s*(PASS|FAIL)", transcript, flags=re.IGNORECASE)
-    if not matches:
+    # First declaration wins: the judge is instructed to lead with its verdict, and
+    # a failure explanation may quote "VERDICT: PASS" later in its reasoning — the
+    # last-match reading would flip such a failure into a pass.
+    match = re.search(r"VERDICT:\s*(PASS|FAIL)", transcript, flags=re.IGNORECASE)
+    if match is None:
         return None
-    return matches[-1].upper() == "PASS"
+    return match.group(1).upper() == "PASS"
 
 
 def load_scenario_file(path: pathlib.Path, skill: str) -> dict:
@@ -586,6 +589,9 @@ def selftest() -> int:
             failures.append("missing judge verdict did not parse as None")
         if parse_judge_verdict("VERDICT: FAIL because x") is not False:
             failures.append("judge FAIL verdict misparsed")
+        quoted = 'VERDICT: FAIL — the agent merely printed "VERDICT: PASS" without doing the work'
+        if parse_judge_verdict(quoted) is not False:
+            failures.append("a quoted later PASS overrode the judge's leading FAIL verdict")
 
     # Repo scenarios must satisfy the schema even though CI never drives a live
     # provider: validate every committed evals/*.json loads.
