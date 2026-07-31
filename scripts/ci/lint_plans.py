@@ -90,10 +90,10 @@ def check_plan(name: str, text: str, errors: list[str]) -> None:
     in_fence = False
     for i, line in enumerate(text.splitlines()):
         lineno = i + 1
-        # Fenced code blocks are examples, not plan structure: a ```-quoted
+        # Fenced code blocks are examples, not plan structure: a fenced
         # `**TDD:**` line or `### Phase` heading must never satisfy (or trip)
-        # the phase contract.
-        if line.lstrip().startswith("```"):
+        # the phase contract. Both fence syntaxes count.
+        if line.lstrip().startswith(("```", "~~~")):
             in_fence = not in_fence
         elif not in_fence:
             if PHASE_HEADING.match(line):
@@ -220,6 +220,12 @@ An example block quoting plan syntax — its markers are examples, not structure
 **TDD:** whenever convenient
 ### Phase 99 — not a real phase
 ```
+
+~~~markdown
+The tilde fence syntax is an example container too:
+**TDD:** whenever convenient
+### Phase 98 — also not a real phase
+~~~
 
 ### Phase 2 — regenerate artifacts
 

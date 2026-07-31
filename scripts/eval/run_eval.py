@@ -353,6 +353,13 @@ def validate_scenario_shape(path: pathlib.Path, scenario: dict) -> None:
                     raise EvalError(f"{path}: checks[{i}].argv must be a non-empty list of strings")
             elif not isinstance(value, str) or not value:
                 raise EvalError(f"{path}: checks[{i}] is missing required field {field!r}")
+            elif field == "pattern":
+                # Compile now so a malformed regex is a load-time configuration
+                # error, not a mid-run crash that discards the evidence record.
+                try:
+                    re.compile(value)
+                except re.error as exc:
+                    raise EvalError(f"{path}: checks[{i}].pattern is not a valid regex: {exc}") from exc
     judge_config = scenario.get("judge", {})
     if not isinstance(judge_config, dict):
         raise EvalError(f"{path}: judge must be an object")
@@ -730,6 +737,25 @@ def selftest() -> int:
             pass
         else:
             failures.append("a check missing its required field did not raise EvalError")
+        bad_regex = base / "bad-regex.json"
+        bad_regex.write_text(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "skill": "bad",
+                    "scenario": "bad-regex",
+                    "prompt": "p",
+                    "checks": [{"type": "transcript_contains", "pattern": "["}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        try:
+            load_scenario_file(bad_regex, "bad")
+        except EvalError:
+            pass
+        else:
+            failures.append("a malformed check regex did not raise EvalError")
 
         probe_script = base / "probe_agent.py"
         probe_script.write_text(
