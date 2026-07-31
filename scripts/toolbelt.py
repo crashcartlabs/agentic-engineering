@@ -210,10 +210,14 @@ def validate_source(*, check_generated: bool = True) -> list[str]:
             errors.append(f"{rel}: release manifest is missing")
             continue
         try:
-            version = json.loads(path.read_text(encoding="utf-8")).get("version")
+            manifest = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             errors.append(f"{rel}: invalid JSON")
             continue
+        if not isinstance(manifest, dict):
+            errors.append(f"{rel}: manifest root must be a JSON object")
+            continue
+        version = manifest.get("version")
         # Every manifest must carry the release identity; a missing version must
         # fail rather than being filtered out of the comparison.
         if not isinstance(version, str) or not version.strip():

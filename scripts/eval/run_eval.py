@@ -254,16 +254,22 @@ def run_check(check: dict, root: pathlib.Path, transcript: str) -> tuple[bool, s
         # Lexical containment only — never resolve: a symlink the provider
         # planted at the forbidden path may point outside the fixture, and
         # resolving it would raise instead of recording the failed check.
-        rel = pathlib.PurePosixPath(check["path"])
-        if rel.is_absolute() or ".." in rel.parts:
-            raise EvalError(f"file_absent path escapes the fixture: {check['path']!r}")
+        # Both path flavors: on Windows, `..\x` and `C:\x` escape too.
+        for flavor in (pathlib.PurePosixPath(check["path"]), pathlib.PureWindowsPath(check["path"])):
+            if flavor.is_absolute() or flavor.drive or ".." in flavor.parts:
+                raise EvalError(f"file_absent path escapes the fixture: {check['path']!r}")
         target = root / check["path"]
         return not (target.exists() or target.is_symlink()), f"file_absent {check['path']}"
     if kind == "file_contains":
         target = fixture_path(root, check["path"])
         if not target.is_file():
             return False, f"file_contains {check['path']} (file missing)"
-        found = re.search(check["pattern"], target.read_text(encoding="utf-8")) is not None
+        try:
+            content = target.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            # Malformed provider output is a failed check with evidence, not a crash.
+            return False, f"file_contains {check['path']} (not valid UTF-8)"
+        found = re.search(check["pattern"], content) is not None
         return found, f"file_contains {check['path']} ~ {check['pattern']!r}"
     if kind == "command":
         argv = check["argv"]
@@ -330,10 +336,18 @@ def parse_judge_verdict(transcript: str) -> bool | None:
     return None
 
 
-def load_scenario_file(path: pathlib.Path, skill: str) -> dict:
+def load_scenario_file(path: pathlib.Path, skill: str) -> tuple[dict, str]:
+    """Parse and validate one scenario; return it with the digest of the parsed bytes.
+
+    Hashing the same bytes that were parsed (not re-reading at run time) keeps the
+    evidence digest bound to the configuration actually exercised even if the file
+    is edited while earlier scenarios run.
+    """
+    raw = path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
     try:
-        scenario = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        scenario = json.loads(raw.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise EvalError(f"{path}: malformed scenario JSON: {exc}") from exc
     if not isinstance(scenario, dict):
         raise EvalError(f"{path}: scenario root must be a JSON object")
@@ -355,7 +369,7 @@ def load_scenario_file(path: pathlib.Path, skill: str) -> dict:
     if not isinstance(scenario["prompt"], str) or not scenario["prompt"].strip():
         raise EvalError(f"{path}: prompt must be a non-empty string")
     validate_scenario_shape(path, scenario)
-    return scenario
+    return scenario, digest
 
 
 CHECK_REQUIRED_FIELDS = {
@@ -461,17 +475,20 @@ def validate_scenario_shape(path: pathlib.Path, scenario: dict) -> None:
         raise EvalError(f"{path}: an enabled/required judge needs a string rubric")
 
 
-def load_scenarios(skill: str, only: str | None) -> tuple[list[tuple[pathlib.Path, dict]], int]:
-    """Return (selected scenarios, total committed scenario count for the skill)."""
+def load_scenarios(
+    skill: str, only: str | None
+) -> tuple[list[tuple[pathlib.Path, dict, str]], int]:
+    """Return (selected (path, scenario, sha256) triples, total committed count)."""
     evals_dir = REPO / "skills" / skill / "evals"
     if not evals_dir.is_dir():
         raise EvalError(f"no evals directory for skill {skill!r} ({evals_dir})")
     all_paths = sorted(evals_dir.glob("*.json"))
-    out: list[tuple[pathlib.Path, dict]] = []
+    out: list[tuple[pathlib.Path, dict, str]] = []
     for path in all_paths:
         if only and path.stem != only:
             continue
-        out.append((path, load_scenario_file(path, skill)))
+        scenario, digest = load_scenario_file(path, skill)
+        out.append((path, scenario, digest))
     if not out:
         raise EvalError(f"no matching scenarios for {skill}" + (f"/{only}" if only else ""))
     return out, len(all_paths)
@@ -486,13 +503,14 @@ def run_scenario(
     bypass_permissions: bool,
     fake_script: pathlib.Path | None = None,
     results_dir: pathlib.Path = RESULTS_DIR,
-    scenario_path: pathlib.Path | None = None,
+    scenario_sha256: str | None = None,
 ) -> dict:
     # Capture provenance before the provider runs: a concurrent commit or
     # scenario edit mid-run must not be recorded as the exercised source.
+    # The scenario digest comes from load time — the same bytes that were parsed.
     provenance = {
         **source_revision(),
-        "scenario_sha256": digest_path(scenario_path) if scenario_path else None,
+        "scenario_sha256": scenario_sha256,
         "injected_skill_sha256": None,
     }
     with tempfile.TemporaryDirectory(prefix="agentic-eval-") as raw:
@@ -506,6 +524,15 @@ def run_scenario(
         shadow_names = scenario.get("fixture", {}).get("shadow_commands", [])
         path_prepend = build_shadow_commands(root, shadow_names) if shadow_names else None
         build_fixture(scenario, root)
+        if injected_skill_source is not None:
+            # Setup argv steps run arbitrary commands; the recorded adapter
+            # digest is only honest if the injected skill survived them intact.
+            injected_target = root / ".claude" / "skills" / scenario["skill"]
+            if digest_path(injected_target) != provenance["injected_skill_sha256"]:
+                raise EvalError(
+                    "fixture setup modified the injected skill under .claude/ — "
+                    "scenarios must not touch harness-reserved paths"
+                )
         result = run_provider(
             provider,
             scenario["prompt"],
@@ -999,9 +1026,9 @@ def main(argv: list[str] | None = None) -> int:
                 timeout=args.timeout,
                 judge=args.judge,
                 bypass_permissions=args.bypass_permissions,
-                scenario_path=path,
+                scenario_sha256=digest,
             )
-            for path, scenario in scenarios
+            for _path, scenario, digest in scenarios
         ]
     except EvalError as exc:
         print(f"error: {exc}", file=sys.stderr)

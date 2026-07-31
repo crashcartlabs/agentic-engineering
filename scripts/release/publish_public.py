@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -58,6 +59,20 @@ def run(cmd: list[str], cwd: pathlib.Path) -> None:
     subprocess.run(cmd, cwd=cwd, check=True)
 
 
+def snapshot_identity() -> tuple[str, str]:
+    """Explicit, non-personal author identity for the generated snapshot commit.
+
+    Inheriting ambient Git config would either publish the maintainer's real
+    email — the exact leak this script exists to avoid — or fail outright on a
+    machine with no global identity. Override via env when a different public
+    attribution is wanted.
+    """
+    return (
+        os.environ.get("AGENTIC_PUBLISH_AUTHOR_NAME", "Agentic Engineering"),
+        os.environ.get("AGENTIC_PUBLISH_AUTHOR_EMAIL", "agentic-engineering@noreply.invalid"),
+    )
+
+
 def resolve_ref(ref: str) -> str:
     result = subprocess.run(
         ["git", "rev-parse", "--short", ref],
@@ -83,7 +98,13 @@ def build_snapshot(ref: str, workdir: pathlib.Path, today: str) -> pathlib.Path:
         else:
             handle.extractall(tree)
     for name, content in reset_files(today).items():
-        (tree / name).write_text(content, encoding="utf-8")
+        target = tree / name
+        # Replace, never write-through: if the archived path is a symlink,
+        # write_text would follow it (pre-3.12 extraction admits escaping
+        # links) and the snapshot would keep the link instead of a reset file.
+        if target.is_symlink() or target.exists():
+            target.unlink()
+        target.write_text(content, encoding="utf-8")
     return tree
 
 
@@ -155,9 +176,14 @@ def publish(remote: str, ref: str, dry_run: bool, today: str) -> int:
             # different version than the ref being published.
             version = verify_release_consistency(tree)
             verify_release_tag(REPO, ref, version)
+        name, email = snapshot_identity()
+        identity = ["-c", f"user.name={name}", "-c", f"user.email={email}"]
         run(["git", "init", "-q", "-b", "main"], cwd=tree)
         run(["git", "add", "-A"], cwd=tree)
-        run(["git", "commit", "-q", "-m", f"Agentic Engineering — public snapshot ({short_sha})"], cwd=tree)
+        run(
+            ["git", *identity, "commit", "-q", "-m", f"Agentic Engineering — public snapshot ({short_sha})"],
+            cwd=tree,
+        )
         if dry_run:
             # Keep the built tree around for inspection by copying it out of the
             # soon-to-be-deleted temp dir.
@@ -206,6 +232,16 @@ def selftest() -> int:
             failures.append(f"{name} reset deviates from its expected exact content")
     if set(files) != set(expected):
         failures.append(f"reset file set changed: {sorted(files)} != {sorted(expected)}")
+
+    default_name, default_email = snapshot_identity()
+    if "@" not in default_email or "noreply" not in default_email:
+        failures.append("default snapshot identity is not a non-personal noreply address")
+    os.environ["AGENTIC_PUBLISH_AUTHOR_NAME"] = "Custom Publisher"
+    try:
+        if snapshot_identity()[0] != "Custom Publisher":
+            failures.append("snapshot identity env override was ignored")
+    finally:
+        os.environ.pop("AGENTIC_PUBLISH_AUTHOR_NAME", None)
 
     with tempfile.TemporaryDirectory(prefix="publish-consistency-selftest-") as raw:
         tree = pathlib.Path(raw)
