@@ -1,0 +1,7 @@
+interface:
+  display_name: "Prototype Spike"
+  short_description: "Run a bounded, throwaway experiment that answers one design question before planning — \"does this approach even work?\", \"which of these…"
+  default_prompt: "Use $prototype-spike to help with this task."
+
+policy:
+  allow_implicit_invocation: false

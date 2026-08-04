@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App build workflow — spec to operations</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --muted: #59636e;
+    --border: #d1d9e0;
+    --panel: #f6f8fa;
+    --panel-strong: #eef4ff;
+    --link: #0969da;
+    --code-bg: #f6f8fa;
+    --code-fg: #1f2328;
+    --accent: #0969da;
+    --good: #1a7f37;
+    --warn: #9a6700;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9198a1;
+      --border: #30363d;
+      --panel: #161b22;
+      --panel-strong: #10233f;
+      --link: #4493f8;
+      --code-bg: #21262d;
+      --code-fg: #e6edf3;
+      --accent: #4493f8;
+      --good: #3fb950;
+      --warn: #d29922;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+      Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  main {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 5rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+    line-height: 1.2;
+    margin: 0 0 0.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h2 {
+    font-size: 1.35rem;
+    line-height: 1.3;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--border);
+    scroll-margin-top: 1rem;
+  }
+
+  h3 {
+    font-size: 1rem;
+    margin: 0 0 0.45rem;
+  }
+
+  p { margin: 0 0 1rem; }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  strong { font-weight: 600; }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+      "Liberation Mono", monospace;
+    font-size: 0.875em;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 0.15em 0.4em;
+    border-radius: 6px;
+  }
+
+  ul, ol { margin: 0 0 1rem; padding-left: 1.35rem; }
+  li { margin: 0.35rem 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 1rem;
+    border: 1px solid var(--border);
+  }
+
+  th, td {
+    border-bottom: 1px solid var(--border);
+    padding: 0.7rem 0.8rem;
+    vertical-align: top;
+    text-align: left;
+  }
+
+  th {
+    background: var(--panel);
+    font-size: 0.82rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  .subtitle {
+    color: var(--muted);
+    margin-bottom: 2rem;
+  }
+
+  nav.toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2.5rem;
+  }
+
+  nav.toc h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 0.6rem;
+    padding: 0;
+    border: none;
+  }
+
+  nav.toc ul { margin: 0; padding-left: 1.25rem; }
+  nav.toc li { margin: 0.25rem 0; }
+
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0 1.5rem;
+  }
+
+  .step,
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    padding: 0.85rem;
+  }
+
+  .step {
+    min-height: 8.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .step .index {
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .step p {
+    margin: 0.35rem 0 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .route {
+    background: var(--panel-strong);
+    border-left: 4px solid var(--accent);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .label {
+    display: inline-block;
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
+
+  .good { color: var(--good); }
+  .warn { color: var(--warn); }
+
+  @media (max-width: 920px) {
+    .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 680px) {
+    main { padding: 1.5rem 1rem 4rem; }
+    h1 { font-size: 1.65rem; }
+    .flow, .grid-2 { grid-template-columns: 1fr; }
+    table { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="top">App build workflow — spec to operations</h1>
+  <p class="subtitle">A practical map for using this repo's skills and agents against the lifecycle:
+  Spec -> Plan -> TDD -> CI verification -> CD/live release -> operations.</p>
+
+  <nav class="toc" aria-label="Table of contents">
+    <h2>Contents</h2>
+    <ul>
+      <li><a href="#short-version">The short version</a></li>
+      <li><a href="#foundations">Foundations: Spec, Plan, TDD</a></li>
+      <li><a href="#day-1">Day 1 intake</a></li>
+      <li><a href="#phase-map">Skill map by build phase</a></li>
+      <li><a href="#side-tools">Side tools and when they enter</a></li>
+      <li><a href="#state">Tracking state between sessions</a></li>
+      <li><a href="#checklist">Operating checklist</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="short-version">The short version</h2>
+  <p>Keep product code in the app repo from day 1. Use this repo as the toolbelt. The
+  lifecycle is not "prompt -> code"; it is a chain of checkable artifacts:</p>
+
+  <p>Skill names below are logical workflow names. Invoke them with the active provider's
+  syntax: <code>/agentic-engineering:spec</code> in Claude Code, <code>$spec</code> in
+  Codex, or <code>/skill:spec</code> in Pi.</p>
+
+  <section class="flow" aria-label="Primary workflow">
+    <article class="step">
+      <span class="index">00</span>
+      <h3>Setup</h3>
+      <code>/new-app</code>
+      <p>Put product code and local instructions in the application repository.</p>
+    </article>
+    <article class="step">
+      <span class="index">01</span>
+      <h3>Map</h3>
+      <code>/wayfinder</code>
+      <p>Optional. Use when the idea is too broad or foggy to specify yet.</p>
+    </article>
+    <article class="step">
+      <span class="index">02</span>
+      <h3>Spec</h3>
+      <code>/spec</code>
+      <p>Define what must exist: users, behavior, acceptance cases, non-goals.</p>
+    </article>
+    <article class="step">
+      <span class="index">03</span>
+      <h3>Plan</h3>
+      <code>/plan</code>
+      <p>Translate the spec into architecture, phases, seams, and validation.</p>
+    </article>
+    <article class="step">
+      <span class="index">04</span>
+      <h3>TDD</h3>
+      <code>/tdd</code><br>
+      <code>/execute</code>
+      <p>Build one approved slice at a time with red -> green evidence.</p>
+    </article>
+    <article class="step">
+      <span class="index">05</span>
+      <h3>CI</h3>
+      <code>/review-plan</code><br>
+      <code>/code-audit</code>
+      <p>On by default: re-run gates and map the diff to the plan, then a correctness audit of the code itself.</p>
+    </article>
+    <article class="step">
+      <span class="index">06</span>
+      <h3>Audit</h3>
+      <code>/security-audit</code>
+      <p>Risk-gated exploitability review before release.</p>
+    </article>
+    <article class="step">
+      <span class="index">07</span>
+      <h3>Release</h3>
+      <code>/commit</code><br>
+      <code>/ship</code>
+      <p>Commit, open an evidence-bearing PR, and hand it to GitHub gates.</p>
+    </article>
+    <article class="step">
+      <span class="index">08</span>
+      <h3>Operate</h3>
+      <code>/babysitting-pr</code><br>
+      <code>/cleanup-worktrees</code>
+      <p>Keep the PR merge-ready, then handle cleanup, backlog, and day-2 issues.</p>
+    </article>
+  </section>
+
+  <h2 id="foundations">Foundations: Spec, Plan, TDD</h2>
+  <div class="grid-3">
+    <section class="panel">
+      <span class="label">Product altitude</span>
+      <h3>Spec: what to build</h3>
+      <p>The spec defines the user problem, required behavior, acceptance cases, edge cases,
+      and non-goals. It should be understandable by product, design, engineering, QA, and
+      agents. This repo's first-class skill for that is
+      <a href="../skills/spec/SKILL.md"><code>/spec</code></a>.</p>
+    </section>
+    <section class="panel">
+      <span class="label">Engineering altitude</span>
+      <h3>Plan: how to build it</h3>
+      <p>The plan translates the spec into architecture, data changes, task order, test seams,
+      validation commands, risks, and rollback. This repo's first-class skill for that is
+      <a href="../skills/plan/SKILL.md"><code>/plan</code></a>.</p>
+    </section>
+    <section class="panel">
+      <span class="label">Code altitude</span>
+      <h3>TDD: prove each slice</h3>
+      <p>TDD is the inner implementation loop: write the failing behavior test, make it pass
+      with minimal code, then clean up without changing behavior. This repo's first-class
+      skill for that loop is <a href="../skills/tdd/SKILL.md"><code>/tdd</code></a>.</p>
+    </section>
+  </div>
+  <section class="panel route">
+    <span class="label">Boundary</span>
+    <h3><code>/spec</code> writes the product contract, not the build plan</h3>
+    <p>Use <code>/spec</code> to settle users, behavior, acceptance cases, edge cases, and
+    non-goals. Use <code>/plan</code> after that to decide architecture, task order, exact
+    test seams, validation commands, rollout, and rollback.</p>
+  </section>
+
+  <h2 id="day-1">Day 1 intake</h2>
+  <div class="grid-2">
+    <section class="panel route">
+      <span class="label">Start with this</span>
+      <h3>Use <code>/wayfinder</code> when the app idea is still foggy</h3>
+      <p>Choose this when you do not yet know the product boundary, first spec, major
+      integrations, data model, or sequence of decisions. The output is a GitHub issue map:
+      destination, decisions so far, unresolved tickets, and out-of-scope boundaries.</p>
+    </section>
+    <section class="panel route">
+      <span class="label">Skip ahead when clear</span>
+      <h3>Use <code>/spec</code>, then use <code>/plan</code></h3>
+      <p>Choose this when the feature can already be phrased as a product requirement with
+      acceptance behavior. The spec defines the "what"; <code>/plan</code> turns it into one
+      buildable implementation contract under <code>plans/</code>.</p>
+    </section>
+  </div>
+
+  <p>For a brand-new app, day 1 starts in the app repo, not this repo:</p>
+  <ol>
+    <li>Create or open the app repo/folder.</li>
+    <li>Run <a href="../skills/new-app/SKILL.md"><code>/new-app</code></a> to add app-specific
+      <code>AGENTS.md</code>, a thin <code>CLAUDE.md</code> adapter, <code>DEVLOG.md</code>,
+      temporary <code>TODO.md</code>, and the spec/plan artifact directories.</li>
+    <li>Run <code>/wayfinder</code> if the idea still needs mapping; otherwise run <code>/spec</code>
+      for the first product contract and then run <code>/plan</code> for the first concrete slice.</li>
+    <li>Do not build product code inside <code>agentic-engineering</code> unless the product is dev tooling.</li>
+  </ol>
+
+  <h2 id="phase-map">Skill map by build phase</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Phase</th>
+        <th>Primary skill</th>
+        <th>Use when</th>
+        <th>Durable output</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0. Repo setup</td>
+        <td><a href="../skills/new-app/SKILL.md"><code>/new-app</code></a>,
+          <code>AGENTS.md</code>, <code>CLAUDE.md</code></td>
+        <td>A new app repo needs local rules, stack commands, deployment assumptions, and a definition of done.</td>
+        <td>Repo instructions, initial gate, app-specific conventions.</td>
+      </tr>
+      <tr>
+        <td>1. Ideation and product spec</td>
+        <td><a href="../skills/spec/SKILL.md"><code>/spec</code></a>,
+          <a href="../skills/wayfinder/SKILL.md"><code>/wayfinder</code></a>,
+          <a href="../skills/grilling/SKILL.md"><code>/grilling</code></a>,
+          <a href="../skills/domain-modeling/SKILL.md"><code>/domain-modeling</code></a>,
+          <a href="../skills/research/SKILL.md"><code>/research</code></a></td>
+        <td>The product intent, acceptance behaviors, edge cases, or user vocabulary are not yet precise.</td>
+        <td><code>specs/&lt;date&gt;-&lt;topic&gt;.md</code>, optionally backed by wayfinder map/tickets or GitHub issues.</td>
+      </tr>
+      <tr>
+        <td>2. Technical planning and architecture</td>
+        <td><a href="../skills/plan/SKILL.md"><code>/plan</code></a>,
+          <a href="../skills/codebase-design/SKILL.md"><code>/codebase-design</code></a>,
+          <a href="../skills/prototype-spike/SKILL.md"><code>/prototype-spike</code></a></td>
+        <td>The spec is clear enough to translate into files, seams, data changes, dependencies, phases, validation, and rollback.</td>
+        <td><code>plans/&lt;date&gt;-&lt;topic&gt;.md</code> with status, phases, success criteria, test seams, and validation commands.</td>
+      </tr>
+      <tr>
+        <td>3. Developer inner loop</td>
+        <td><a href="../skills/execute/SKILL.md"><code>/execute</code></a>,
+          <a href="../agents/executor.md"><code>executor</code></a>,
+          <a href="../skills/tdd/SKILL.md"><code>/tdd</code></a>,
+          <a href="../skills/sandbox/SKILL.md"><code>/sandbox</code></a></td>
+        <td>The plan is approved and implementation should proceed in isolated, test-first vertical slices.</td>
+        <td><code>plan/&lt;slug&gt;</code> branch, phase commits, red -> green evidence, updated plan status/notes.</td>
+      </tr>
+      <tr>
+        <td>4. CI verification gates</td>
+        <td><a href="../skills/review-plan/SKILL.md"><code>/review-plan</code></a>,
+          <a href="../skills/code-audit/SKILL.md"><code>/code-audit</code></a>,
+          <a href="../skills/security-audit/SKILL.md"><code>/security-audit</code></a>,
+          <a href="../skills/commit/SKILL.md"><code>/commit</code></a></td>
+        <td>The branch must prove it satisfies the plan/spec before it can be merged.
+        <code>/review-plan</code> + <code>/code-audit</code> run on every change by
+        default; <code>/security-audit</code> is risk-gated.</td>
+        <td>Tracked review/audit reports, green local gate, coherent commits.</td>
+      </tr>
+      <tr>
+        <td>5. CD and live release</td>
+        <td><a href="../skills/ship/SKILL.md"><code>/ship</code></a>,
+          <a href="../skills/babysitting-pr/SKILL.md"><code>/babysitting-pr</code></a></td>
+        <td>The verified branch is ready for a PR, CI, human review, merge, and the app repo's deployment pipeline.</td>
+        <td>Evidence-bearing PR, merge-ready state, deploy evidence from the app's own CD system.</td>
+      </tr>
+      <tr>
+        <td>6. Day-2 operations</td>
+        <td><a href="../skills/bugfix/SKILL.md"><code>/bugfix</code></a>,
+          <a href="../skills/diagnosing-bugs/SKILL.md"><code>/diagnosing-bugs</code></a>,
+          <a href="../skills/todo-cleanup/SKILL.md"><code>/todo-cleanup</code></a>,
+          <a href="../skills/cleanup-worktrees/SKILL.md"><code>/cleanup-worktrees</code></a>,
+          <a href="../skills/handoff/SKILL.md"><code>/handoff</code></a></td>
+        <td>The feature is live or merged and needs monitoring follow-up, incident work, backlog conversion, or workspace cleanup.</td>
+        <td>Incident notes, follow-up issues, cleaned worktrees, durable session handoff when needed.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 id="side-tools">Side tools and when they enter</h2>
+  <div class="grid-3">
+    <section class="panel">
+      <h3>Risk isolation</h3>
+      <p>Use <a href="../skills/sandbox/SKILL.md"><code>/sandbox</code></a> before
+      unfamiliar installers, destructive git experiments, untrusted code, hook setup
+      experiments, mutation-heavy dogfooding, or a TDD/deployment experiment that should not
+      touch the live machine.</p>
+    </section>
+    <section class="panel">
+      <h3>Parallel work</h3>
+      <p>Use <a href="../skills/cmux/SKILL.md"><code>/cmux</code></a> when the work can
+      fan out into independent agents or worktrees. Use the
+      <a href="cmux-guide.html">cmux guide</a> for fleet mechanics.</p>
+    </section>
+    <section class="panel">
+      <h3>Architecture review</h3>
+      <p>Use <a href="../skills/improve-codebase-architecture/SKILL.md"><code>/improve-codebase-architecture</code></a>
+      for periodic or heavyweight architecture scans, not for every feature.</p>
+    </section>
+    <section class="panel">
+      <h3>Bug diagnosis</h3>
+      <p>Use <a href="../skills/diagnosing-bugs/SKILL.md"><code>/diagnosing-bugs</code></a>
+      when the cause is unknown, including day-2 incidents. It proves the cause before the
+      TDD regression loop starts.</p>
+    </section>
+    <section class="panel">
+      <h3>Deployment policy</h3>
+      <p>This repo does not yet have a dedicated CD or SRE-agent skill. The app repo's own
+      deployment pipeline owns canaries, blue-green releases, feature flags, smoke tests,
+      observability, and rollback policy.</p>
+    </section>
+    <section class="panel">
+      <h3>Skill changes</h3>
+      <p>Use <a href="../skills/build-skill/SKILL.md"><code>/build-skill</code></a>,
+      <a href="../skills/dogfood/SKILL.md"><code>/dogfood</code></a>, and
+      <a href="../skills/skill-safety-scan/SKILL.md"><code>/skill-safety-scan</code></a>
+      when changing agent behavior rather than app code.</p>
+    </section>
+    <section class="panel">
+      <h3>Session transfer</h3>
+      <p>Use <a href="../skills/handoff/SKILL.md"><code>/handoff</code></a> when hot
+      conversation context must survive a fresh session. It does not replace the plan file.</p>
+    </section>
+  </div>
+
+  <h2 id="state">Tracking state between sessions</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Question</th>
+        <th>Source of truth</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>What is the product contract?</td>
+        <td>The spec artifact under <code>specs/</code>: PRD, feature brief, Gherkin-style acceptance cases, or wayfinder-derived product decision.</td>
+      </tr>
+      <tr>
+        <td>Where are we in the build?</td>
+        <td>The active plan file under <code>plans/</code>: status, checkboxes, amendments, execution notes.</td>
+      </tr>
+      <tr>
+        <td>Where did the last session stop?</td>
+        <td><code>/handoff</code> only when the stop point depends on hot conversation context.</td>
+      </tr>
+      <tr>
+        <td>What has happened over time?</td>
+        <td><code>DEVLOG.md</code>, newest first.</td>
+      </tr>
+      <tr>
+        <td>What work is deferred?</td>
+        <td>GitHub issues; <code>TODO.md</code> is only temporary scratch.</td>
+      </tr>
+      <tr>
+        <td>What is the broad app roadmap?</td>
+        <td>The <code>/wayfinder</code> map issue and its child tickets.</td>
+      </tr>
+      <tr>
+        <td>What PR is still being watched?</td>
+        <td>The PR state plus the <code>babysitting-active</code> label.</td>
+      </tr>
+      <tr>
+        <td>What is live?</td>
+        <td>The app repo's release/deployment evidence: tags, environment dashboard, rollout notes, feature-flag state, and incident records.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 id="checklist">Operating checklist</h2>
+  <ol>
+    <li><strong>Create the app repo first.</strong> Run <code>/new-app</code> there. Do not
+      start product code inside <code>agentic-engineering</code> and move it later.</li>
+    <li><strong>Choose the first routing gate.</strong> If the idea is foggy, run
+      <code>/wayfinder</code>; if the product behavior is clear, run <code>/spec</code>.</li>
+    <li><strong>Do not skip the spec.</strong> Capture what the software must do, who it is for,
+      acceptance behavior, edge cases, non-goals, and any executable acceptance tests.</li>
+    <li><strong>Make the plan executable.</strong> Turn the spec into testable success criteria,
+      named seams, validation commands, risks, rollout notes, and rollback strategy.</li>
+    <li><strong>Execute only approved plans.</strong> <code>/execute</code> owns the branch and phase
+      commits; <code>/tdd</code> owns strict red -> green slices where the plan requires them.</li>
+    <li><strong>Review before shipping.</strong> Run <code>/review-plan</code> first, then deeper audits
+      when risk warrants them.</li>
+    <li><strong>Ship with evidence.</strong> <code>/commit</code> runs the repo gate before commits;
+      <code>/ship</code> opens the PR with verification evidence; the app's CD pipeline owns live rollout.</li>
+    <li><strong>Operate and clean up.</strong> Use <code>/babysitting-pr</code> for live PR follow-through,
+      <code>/diagnosing-bugs</code> for incidents, then <code>/cleanup-worktrees</code> and
+      <code>/todo-cleanup</code> after merge.</li>
+  </ol>
+</main>
+</body>
+</html>

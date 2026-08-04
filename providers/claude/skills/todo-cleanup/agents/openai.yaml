@@ -1,0 +1,4 @@
+interface:
+  display_name: "TODO Cleanup"
+  short_description: "Reviews and clears a repository TODO/backlog file by removing completed entries and converting every remaining untracked work item into…"
+  default_prompt: "Use $todo-cleanup to help with this task."

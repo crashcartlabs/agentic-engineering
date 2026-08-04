@@ -1,0 +1,28 @@
+# Disposable agent sandbox — see sandbox/README.md for usage.
+services:
+  sandbox:
+    build: .
+    image: agentic-engineering-sandbox
+    stdin_open: true
+    tty: true
+    init: true
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    volumes:
+      # A sanitized git archive is the only host input. The checkout is never mounted.
+      - ${AGENTIC_SANDBOX_ARCHIVE:-../.sandbox/source.tar}:/seed/source.tar:ro
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+      - /work:size=2g,uid=1000,gid=1000,mode=0750
+    mem_limit: 4g
+    cpus: 2
+
+  # Network access is an explicit variant for dependency downloads.
+  sandbox-online:
+    extends: sandbox
+    network_mode: bridge

@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "description": "Pins for skills derived from upstream repositories. check_upstream.py compares each pinned file blob SHA (the SHA the GitHub Contents API returns for that path) against the live upstream file and reports drift. Updating a pin to a new upstream SHA is a manual, reviewed decision — adaptations diverge from upstream deliberately.",
+  "skills": [
+    {
+      "local": "build-skill",
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/writing-great-skills/SKILL.md",
+      "ref": "main",
+      "sha": "82abd0dce264eecb3ed461b3eac17bdafb52f84b",
+      "synced": "2026-08-03",
+      "note": "Adapts vocabulary and checklist from Matt Pocock's writing-great-skills skill."
+    },
+    {
+      "local": "codebase-design",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/codebase-design/SKILL.md",
+      "ref": "main",
+      "sha": "16620c24528b737408e78d95dd6a0e01a98d3d63",
+      "synced": "2026-08-03",
+      "note": "Adapted from Matt Pocock's codebase-design skill (DEEPENING and DESIGN-IT-TWICE references).",
+      "files": [
+        {
+          "path": "skills/engineering/codebase-design/DEEPENING.md",
+          "sha": "3938457b88ddf98262d5f461aac703dbd74f749a"
+        },
+        {
+          "path": "skills/engineering/codebase-design/DESIGN-IT-TWICE.md",
+          "sha": "49a7c42a2ccc6aff0ffc09efd28e6a4aa3c373d7"
+        }
+      ]
+    },
+    {
+      "local": "commit",
+      "repo": "mattpocock/skills",
+      "path": "skills/misc/setup-pre-commit/SKILL.md",
+      "ref": "main",
+      "sha": "395a77b5f7e33911092f7bc86e7d87c4ca70d189",
+      "synced": "2026-08-03",
+      "note": "Pre-commit-hook flow adapted from Matt Pocock's setup-pre-commit skill."
+    },
+    {
+      "local": "diagnosing-bugs",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "ref": "main",
+      "sha": "f400de7c1937377fec7ff9bae3b0c072670f1e81",
+      "synced": "2026-08-03",
+      "note": "Incorporates behaviors backported from Matt Pocock's diagnosing-bugs skill."
+    },
+    {
+      "local": "domain-modeling",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/domain-modeling/SKILL.md",
+      "ref": "main",
+      "sha": "d0f7e1a5ccb06a7184056ff9af02b67bc77f9dda",
+      "synced": "2026-08-03",
+      "note": "Adapted from Matt Pocock's domain-modeling skill (ADR-FORMAT and CONTEXT-FORMAT references).",
+      "files": [
+        {
+          "path": "skills/engineering/domain-modeling/ADR-FORMAT.md",
+          "sha": "da7e78ec1c220cd0aedf7ad36424c9398034f375"
+        },
+        {
+          "path": "skills/engineering/domain-modeling/CONTEXT-FORMAT.md",
+          "sha": "eaf2a18573f0a2d8c69ed53e29e4d9e21baf81d8"
+        }
+      ]
+    },
+    {
+      "local": "grilling",
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/grilling/SKILL.md",
+      "ref": "main",
+      "sha": "52d8eb3cadd2dca62634d5dccfa73ea6b725b117",
+      "synced": "2026-08-03",
+      "note": "Rewritten locally; descends from Matt Pocock's grilling skill."
+    },
+    {
+      "local": "improve-codebase-architecture",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "ref": "main",
+      "sha": "b56969e92f0705d70700f908b8ec929a1edfa782",
+      "synced": "2026-08-03",
+      "note": "Adapted from Matt Pocock's improve-codebase-architecture skill."
+    },
+    {
+      "local": "plan",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/tdd/SKILL.md",
+      "ref": "main",
+      "sha": "9a2e1d2a1ad856b0d5903dd002209ff8c32c9a48",
+      "synced": "2026-08-03",
+      "note": "Testing-strategy doctrine ported from Matt Pocock's tdd skill (same upstream file as tdd)."
+    },
+    {
+      "local": "research",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/research/SKILL.md",
+      "ref": "main",
+      "sha": "0ba594a07f306479baa67104381f48e209ab6aae",
+      "synced": "2026-08-03",
+      "note": "Adapted from Matt Pocock's research skill."
+    },
+    {
+      "local": "spec",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/to-spec/SKILL.md",
+      "ref": "main",
+      "sha": "f3cca8d3dbdb7c22e11447f1d13011a78ca6efba",
+      "synced": "2026-08-03",
+      "note": "Adapted from Matt Pocock's to-spec skill."
+    },
+    {
+      "local": "tdd",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/tdd/SKILL.md",
+      "ref": "main",
+      "sha": "9a2e1d2a1ad856b0d5903dd002209ff8c32c9a48",
+      "synced": "2026-08-03",
+      "note": "Adapted from Matt Pocock's tdd skill; testing-strategy doctrine also feeds plan."
+    },
+    {
+      "local": "wayfinder",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/wayfinder/SKILL.md",
+      "ref": "main",
+      "sha": "42e3644cc57e41a1b87482754f25b4d9462d4bbc",
+      "synced": "2026-08-03",
+      "note": "Adapted from Matt Pocock's wayfinder skill."
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "skill": "commit",
+  "scenario": "commit-staged-work",
+  "fixture": {
+    "files": {
+      "src.txt": "original content\n",
+      "README.md": "# Fixture project\n"
+    },
+    "git": true,
+    "setup": [
+      {"write": {"path": "src.txt", "content": "original content\nnew behavior line\n"}},
+      {"write": {"path": "notes.txt", "content": "untracked scratch note\n"}}
+    ]
+  },
+  "prompt": "Use the commit skill to land the current changes in this repository as a commit. The src.txt change is the work to land; decide what belongs in the changeset the way the skill instructs.",
+  "checks": [
+    {"type": "command", "argv": ["git", "rev-list", "--count", "HEAD"], "expect_exit": 0, "expect_output": "2"},
+    {"type": "command", "argv": ["git", "diff", "HEAD", "--", "src.txt"], "expect_exit": 0, "expect_empty_output": true},
+    {"type": "command", "argv": ["git", "grep", "-q", "new behavior line", "HEAD", "--", "src.txt"], "expect_exit": 0},
+    {"type": "file_exists", "path": "notes.txt"},
+    {"type": "command", "argv": ["git", "ls-tree", "HEAD", "--", "notes.txt"], "expect_exit": 0, "expect_empty_output": true}
+  ],
+  "judge": {
+    "enabled": true,
+    "required": true,
+    "context_commands": [
+      ["git", "log", "-1", "--format=%s%n%n%b"],
+      ["git", "show", "--stat", "--format=", "HEAD"]
+    ],
+    "rubric": "Judge the commit that was created, using the harness-collected git output as ground truth (the transcript's own claims about the commit are not evidence): (1) the actual committed subject describes the src.txt behavior change specifically, not generically ('update files' fails); (2) the untracked scratch note was not silently swept into the commit unless the transcript shows a deliberate decision; (3) the transcript verifies the landed commit rather than assuming success."
+  }
+}

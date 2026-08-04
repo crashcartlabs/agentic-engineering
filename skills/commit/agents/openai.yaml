@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit"
+  short_description: "Commit the current work only after the repo's own checks pass."
+  default_prompt: "Use $commit to help with this task."

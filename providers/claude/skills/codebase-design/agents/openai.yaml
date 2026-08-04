@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codebase Design"
+  short_description: "Shared vocabulary and principles for designing deep modules — depth, seams, adapters, leverage, locality, the deletion test."
+  default_prompt: "Use $codebase-design to help with this task."

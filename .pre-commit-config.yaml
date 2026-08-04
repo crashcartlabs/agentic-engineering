@@ -1,0 +1,17 @@
+repos:
+  - repo: local
+    hooks:
+      - id: agentic-engineering-gate
+        name: agentic engineering gate (index source, quick)
+        # language: script runs the repo's own interpreter-probing wrapper
+        # (scripts/ci/run_gate). On POSIX this is the POSIX sh script; on
+        # Windows pre-commit resolves the same entry to scripts/ci/run_gate.cmd
+        # (which probes py/python), so the hook works on both without
+        # pre-commit trying to pip-install this non-package repo. (Codex PR
+        # #17 note 3: language must be `script`, not `system`, so Windows does
+        # not try to exec the POSIX sh wrapper directly.)
+        entry: scripts/ci/run_gate
+        args: [--index, --quick]
+        language: script
+        pass_filenames: false
+        always_run: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dogfood"
+  short_description: "Live-test a skill in this repo to confirm it works as intended — the Definition-of-Done check applied to a skill."
+  default_prompt: "Use $dogfood to help with this task."
+
+policy:
+  allow_implicit_invocation: false

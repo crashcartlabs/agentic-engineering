@@ -1,0 +1,4 @@
+interface:
+  display_name: "Babysitting PR"
+  short_description: "Keep one open PR merge-ready until it lands — subscribe to its activity and, on each CI failure, review comment, or merge conflict, decide…"
+  default_prompt: "Use $babysitting-pr to help with this task."

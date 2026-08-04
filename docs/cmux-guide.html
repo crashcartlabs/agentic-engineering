@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="scripts/docs/render_cmux_guide.py">
+<title>cmux orchestrator guide</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; font: 16px/1.6 system-ui, sans-serif; background: #f6f7f9; color: #18202a; }
+main { max-width: 900px; margin: 2rem auto; padding: 2rem 3rem; background: #fff; border-radius: 14px; box-shadow: 0 8px 30px #0001; }
+h1 { font-size: 2rem; } h2 { margin-top: 2rem; border-bottom: 1px solid #d9dee5; padding-bottom: .35rem; }
+code { background: #eef1f5; border-radius: 4px; padding: .12rem .35rem; }
+pre { overflow-x: auto; padding: 1rem; background: #111827; color: #e5e7eb; border-radius: 8px; }
+pre code { background: transparent; padding: 0; } li { margin: .45rem 0; }
+.generated { color: #64748b; font-size: .85rem; }
+@media (prefers-color-scheme: dark) { body { background:#0b1017;color:#e5e7eb } main { background:#131a24 } code { background:#263244 } h2 { border-color:#334155 } }
+</style>
+</head>
+<body><main>
+<p class="generated">Generated from <code>docs/cmux-guide.md</code>; do not edit this HTML directly.</p>
+<h1 id="cmux-orchestrator-how-to-guide">cmux orchestrator — how-to guide</h1>
+<p><code>just cmux-help</code> opens this file. It&#x27;s the map for using a Claude Code / Codex / <code>pi</code> session as an orchestrator that drives fleets of agents through cmux.</p>
+<h2 id="the-mental-model">The mental model</h2>
+<p>cmux nests everything in one hierarchy:</p>
+<pre><code>Window      a macOS window with its own sidebar
+ └ Workspace  a sidebar entry (a &quot;tab&quot;)
+   └ Pane       a split region within a workspace
+     └ Surface    a tab within a pane (terminal or browser)</code></pre>
+<p>Every object is addressable from the CLI. The whole system is four verbs:</p>
+<pre><code>cmux send        --surface &lt;ref&gt; &quot;text&quot;   # type into a terminal
+cmux send-key    --surface &lt;ref&gt; enter    # press a key (send doesn&#x27;t submit)
+cmux read-screen --surface &lt;ref&gt;          # read what it printed
+cmux close-surface --surface &lt;ref&gt;        # shut it down</code></pre>
+<h2 id="two-arrangements-for-a-fleet">Two arrangements for a fleet</h2>
+<ul>
+  <li>**Fan-out (<code>tabs</code>)** — different features, one agent each. Each feature gets its own sibling workspace (tab) in a shared window.</li>
+  <li>**Bake-off (<code>grid</code>)** — the same feature/bug, several agent/model combos, arranged as panes within one workspace so you can compare them side by side.</li>
+</ul>
+<p>Both are driven by <code>scripts/cmux/spawn_fleet.py</code>, which also creates an isolated <code>git worktree</code> per agent so concurrent runs never collide. Worktrees separate files for concurrency; they are not a security boundary.</p>
+<h2 id="the-just-recipes">The <code>just</code> recipes</h2>
+<ul>
+  <li><code>just devcl</code> — start Claude Code in the current repo with its normal safety controls. Installed shared skills are available through the Claude adapter.</li>
+  <li><code>just devco</code> — start Codex in the current repo with its normal sandbox and approval controls. Installed shared skills are available as <code>$skill-name</code>.</li>
+  <li><code>just devpi</code> — start <code>pi</code> in the current repo with installed shared skills.</li>
+  <li><code>just build &quot;&lt;feature&gt;&quot;</code> — bake-off: 4 agent/model combos (Claude/opus, Codex/gpt-5.5, pi/glm-5.2, pi/minimax-m3) each build the same feature in their own worktree, arranged as 4 panes in one workspace. A Claude Code orchestrator is launched already primed with the manifest to supervise and report which solution is best. Agent safety controls remain enabled.</li>
+  <li><code>just debug &quot;&lt;bug&gt;&quot;</code> — same as <code>build</code>, but each combo doubled (8 total), for urgent parallel bug-fix attempts.</li>
+  <li><code>just build-unsafe &quot;&lt;feature&gt;&quot;</code> — the same bake-off with provider permission bypasses and outside-cmux socket control explicitly enabled. Use only in a disposable sandbox after reviewing the risk.</li>
+  <li><code>just cmux-help</code> — this file. <code>just help</code> opens the canonical app workflow.</li>
+</ul>
+<p>By default these target wherever you ran <code>just</code> from, not this repo — pass an explicit repo path as the second argument if you want to override that (e.g. <code>just build &quot;add dark mode&quot; ~/projects/other-repo</code>).</p>
+<h2 id="socket-and-environment-safety">Socket and environment safety</h2>
+<p>The safe default keeps cmux&#x27;s socket at <code>automation.socketControlMode: cmuxOnly</code>; launch the orchestrator from a cmux pane. The tooling refuses to weaken this policy silently. <code>--allow-all-socket</code> is an explicit escape hatch that backs up the config before changing it; see <code>skills/cmux/references/socket-policy.md</code> for the exact threat model and restoration steps.</p>
+<p>Environment files are never discovered or copied automatically. Pass a specific readable file with <code>--env-file</code> only when the fleet actually needs it, and treat every spawned agent as able to read that file.</p>
+<h2 id="follow-up">Follow-up</h2>
+<p>Once a fleet is deployed, ask the orchestrator things like:</p>
+<ul>
+  <li><code>/cmux check &lt;fleet-slug&gt;</code> — status of every agent in a fleet</li>
+  <li><code>/cmux collect &lt;fleet-slug&gt;</code> — git status/diff summary per agent</li>
+  <li><code>/cmux teardown &lt;fleet-slug&gt;</code> — close the fleet&#x27;s surfaces (worktrees are never deleted automatically — they may hold work you want to keep)</li>
+</ul>
+<p>Each fleet&#x27;s manifest lands in the target repo at <code>.cmux/fleet/&lt;slug&gt;.json</code>, untracked — add <code>.cmux/</code> to that repo&#x27;s <code>.gitignore</code> if you don&#x27;t want it showing up in <code>git status</code>.</p>
+</main></body>
+</html>

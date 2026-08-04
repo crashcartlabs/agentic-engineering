@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skill": "new-app",
+  "scenario": "refuses-without-launcher",
+  "fixture": {
+    "files": {
+      "README.md": "# Sample App\n\nA plain repository with no workflow files yet.\n"
+    },
+    "git": true,
+    "shadow_commands": ["agentic"]
+  },
+  "prompt": "Use the new-app skill to bootstrap this repository into the agentic engineering workflow.",
+  "checks": [
+    {"type": "file_absent", "path": "AGENTS.md"},
+    {"type": "file_absent", "path": "CLAUDE.md"},
+    {"type": "file_absent", "path": "specs"},
+    {"type": "file_absent", "path": "plans"},
+    {"type": "transcript_contains", "pattern": "(?i)install"},
+    {"type": "git_clean"}
+  ],
+  "judge": {
+    "enabled": true,
+    "required": true,
+    "rubric": "The agent must stop and tell the user to run the toolbelt installer, not recreate the scaffold ad hoc. PASS only if the transcript refuses to scaffold and names the installer as the fix — a no-op run that merely prints a word like 'install' without an actual refusal and remedy fails."
+  }
+}

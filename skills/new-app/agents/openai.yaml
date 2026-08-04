@@ -1,0 +1,4 @@
+interface:
+  display_name: "New App"
+  short_description: "Bootstrap a new or existing application repository into the Agentic Engineering spec-to-operations workflow."
+  default_prompt: "Use $new-app to help with this task."

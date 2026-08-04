@@ -1,0 +1,7 @@
+interface:
+  display_name: "Skill Safety Scan"
+  short_description: "Safety scan of an agent skill before it lands in `skills/` — reads the skill's SKILL.md plus its references/assets and flags…"
+  default_prompt: "Use $skill-safety-scan to help with this task."
+
+policy:
+  allow_implicit_invocation: false

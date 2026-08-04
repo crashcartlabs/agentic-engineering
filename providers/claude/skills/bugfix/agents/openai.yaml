@@ -1,0 +1,7 @@
+interface:
+  display_name: "Bugfix"
+  short_description: "Lightweight lane for small, well-understood fixes: reproduce and prove the root cause, then write a compact single-phase plan and execute…"
+  default_prompt: "Use $bugfix to help with this task."
+
+policy:
+  allow_implicit_invocation: false

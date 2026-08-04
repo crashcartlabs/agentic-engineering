@@ -1,0 +1,4 @@
+interface:
+  display_name: "Updating npm Package"
+  short_description: "Safely move an existing npm dependency to a newer version — check the registry for the latest, read the changelog across the span…"
+  default_prompt: "Use $updating-npm-package to help with this task."

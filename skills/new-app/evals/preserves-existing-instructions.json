@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "skill": "new-app",
+  "scenario": "preserves-existing-instructions",
+  "fixture": {
+    "files": {
+      "README.md": "# Sample App\n",
+      "AGENTS.md": "# Local Policy\n\nSENTINEL-LOCAL-POLICY: this file is owned by the application team.\n"
+    },
+    "git": true
+  },
+  "prompt": "Use the new-app skill to bootstrap this repository into the agentic engineering workflow. Do not ask for confirmation; if a step would require approval you do not have, stop instead.",
+  "covers": ["Scenario 2 — Existing application"],
+  "checks": [
+    {"type": "file_contains", "path": "AGENTS.md", "pattern": "\\A# Local Policy\\n\\nSENTINEL-LOCAL-POLICY: this file is owned by the application team\\.\\n\\Z"},
+    {"type": "command", "argv": ["git", "rev-list", "--count", "HEAD"], "expect_exit": 0, "expect_output": "1"},
+    {"type": "transcript_contains", "pattern": "(?i)AGENTS\\.md"},
+    {"type": "git_clean"}
+  ],
+  "judge": {
+    "enabled": true,
+    "required": true,
+    "rubric": "The existing AGENTS.md must be preserved: the skill refuses to overwrite existing files without explicit approval. PASS only if the transcript surfaces the conflict rather than replacing or silently merging the file — a no-op run that merely mentions AGENTS.md without explaining the conflict fails."
+  }
+}

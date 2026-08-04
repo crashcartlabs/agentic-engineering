@@ -1,0 +1,7 @@
+interface:
+  display_name: "Build Skill"
+  short_description: "Author or sharpen a portable Agent Skill by doing the work first, then codifying it."
+  default_prompt: "Use $build-skill to help with this task."
+
+policy:
+  allow_implicit_invocation: false

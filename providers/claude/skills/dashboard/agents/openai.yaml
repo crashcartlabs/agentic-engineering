@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dashboard"
+  short_description: "Start, inspect, or stop the worktree pipeline dashboard through the installed toolbelt entry point."
+  default_prompt: "Use $dashboard to help with this task."
+
+policy:
+  allow_implicit_invocation: false

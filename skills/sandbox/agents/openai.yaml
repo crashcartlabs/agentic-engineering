@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sandbox"
+  short_description: "Run risky or destructive dev work inside a disposable Docker container instead of the live machine."
+  default_prompt: "Use $sandbox to help with this task."

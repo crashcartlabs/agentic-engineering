@@ -1,0 +1,7 @@
+interface:
+  display_name: "Plan"
+  short_description: "Interactive planning skill — grills you to alignment, then writes a structured Markdown implementation plan that an executor agent can…"
+  default_prompt: "Use $plan to help with this task."
+
+policy:
+  allow_implicit_invocation: false

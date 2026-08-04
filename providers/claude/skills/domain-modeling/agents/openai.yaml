@@ -1,0 +1,4 @@
+interface:
+  display_name: "Domain Modeling"
+  short_description: "Build and sharpen a project's domain model."
+  default_prompt: "Use $domain-modeling to help with this task."

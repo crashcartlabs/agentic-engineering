@@ -1,0 +1,7 @@
+interface:
+  display_name: "Review Plan"
+  short_description: "Plan-conformance review — checks executed work against its approved plan's success criteria and AGENTS.md's Definition of Done."
+  default_prompt: "Use $review-plan to help with this task."
+
+policy:
+  allow_implicit_invocation: false

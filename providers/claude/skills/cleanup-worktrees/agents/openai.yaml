@@ -1,0 +1,7 @@
+interface:
+  display_name: "Cleanup Worktrees"
+  short_description: "Remove git worktrees that are clean and fully merged into main, and only those."
+  default_prompt: "Use $cleanup-worktrees to help with this task."
+
+policy:
+  allow_implicit_invocation: false

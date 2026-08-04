@@ -1,0 +1,7 @@
+interface:
+  display_name: "Spec"
+  short_description: "Interactive product-specification skill that turns a rough idea, current conversation, or wayfinder ticket into an approved product…"
+  default_prompt: "Use $spec to help with this task."
+
+policy:
+  allow_implicit_invocation: false

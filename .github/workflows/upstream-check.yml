@@ -1,0 +1,62 @@
+name: Upstream Skill Drift Check
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift-check:
+    name: Compare pinned upstream SHAs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+      - name: Check pinned upstream skill SHAs
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          set +e
+          python3 scripts/maintenance/check_upstream.py > "$RUNNER_TEMP/upstream-report.md" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/upstream-report.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Open a drift issue when upstream moved
+        if: steps.check.outputs.status == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          changed=$(grep -c '^CHANGED' "$RUNNER_TEMP/upstream-report.md" || true)
+          title="Upstream drift: $changed skill(s) changed since pinned SHA"
+          existing=$(gh issue list --state open --search "in:title Upstream drift" --limit 1 --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file "$RUNNER_TEMP/upstream-report.md"
+            echo "Refreshed drift issue #$existing with the current report."
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/upstream-report.md"
+          fi
+      - name: Open a check-failure issue when upstream is unreachable
+        if: steps.check.outputs.status == '2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Upstream drift check could not verify upstream"
+          existing=$(gh issue list --state open --search "in:title could not verify" --limit 1 --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file "$RUNNER_TEMP/upstream-report.md"
+            echo "Refreshed check-failure issue #$existing with the current report."
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/upstream-report.md"
+          fi

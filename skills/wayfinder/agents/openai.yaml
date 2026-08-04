@@ -1,0 +1,7 @@
+interface:
+  display_name: "Wayfinder"
+  short_description: "Plan a huge chunk of work — more than one agent session or one `plan` document can hold — as a shared map of decision tickets on GitHub…"
+  default_prompt: "Use $wayfinder to help with this task."
+
+policy:
+  allow_implicit_invocation: false

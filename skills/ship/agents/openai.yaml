@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ship"
+  short_description: "Open an evidence-bearing PR for the current branch — re-runs the repo's gate and self-review at the exact HEAD being shipped, refuses on…"
+  default_prompt: "Use $ship to help with this task."

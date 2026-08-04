@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolving Merge Conflicts"
+  short_description: "Resolve git merge, rebase, or cherry-pick conflicts safely — reconstruct the result that honors both sides' intent, or abort when that…"
+  default_prompt: "Use $resolving-merge-conflicts to help with this task."

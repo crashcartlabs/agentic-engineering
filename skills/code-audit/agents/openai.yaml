@@ -1,0 +1,7 @@
+interface:
+  display_name: "Code Audit"
+  short_description: "Correctness-and-intent review of the current worktree's changes."
+  default_prompt: "Use $code-audit to help with this task."
+
+policy:
+  allow_implicit_invocation: false

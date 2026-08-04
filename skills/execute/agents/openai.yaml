@@ -1,0 +1,7 @@
+interface:
+  display_name: "Execute"
+  short_description: "Launches or resumes the executor on an approved or in-progress plan."
+  default_prompt: "Use $execute to help with this task."
+
+policy:
+  allow_implicit_invocation: false

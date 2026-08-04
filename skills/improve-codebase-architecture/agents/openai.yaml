@@ -1,0 +1,7 @@
+interface:
+  display_name: "Improve Codebase Architecture"
+  short_description: "Scan a codebase for architectural deepening opportunities — shallow modules, leaky seams, low-locality code — present them as a visual…"
+  default_prompt: "Use $improve-codebase-architecture to help with this task."
+
+policy:
+  allow_implicit_invocation: false

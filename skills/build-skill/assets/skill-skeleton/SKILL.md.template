@@ -1,0 +1,35 @@
+---
+name: <kebab-case-name>            # ^[a-z0-9-]+$, matches the folder, gerund form where natural
+description: <what it does AND when to use it — third-person imperative, ≥2 concrete trigger conditions generalized to intent categories, ≤1024 chars, no angle brackets. See build-skill/references/writing-descriptions.md.>
+---
+
+# <Skill title>
+
+<One or two sentences: the agent's role and the single job of this skill. Imperative,
+not exposition — "Do X" not "This skill helps with X". Name a leading word if one fits.>
+
+<!-- Choose the shape that fits — delete the other. A skill can be all steps, all
+     reference, or both (see build-skill/references/great-skills.md, "Information hierarchy"). -->
+
+## Steps  <!-- for a workflow skill -->
+
+## Step 1 — <action verb first>
+
+<What the agent does. End on a completion criterion the agent can check — and, where
+it matters, one that is exhaustive ("every X accounted for"), not vague.>
+
+**Completion criterion:** <how the agent knows this step is done>
+
+## Step 2 — <...>
+
+---
+
+## <Reference heading>  <!-- for a reference skill: a flat peer-set is fine -->
+
+<Definitions, rules, facts the agent consults on demand. Co-locate each concept's
+rules and caveats under one heading. Push detail that only some runs need into
+references/ and link it below.>
+
+<!-- Link every supporting file so the agent knows it exists (no orphans):
+     - references/reference.md — <what it holds>
+     Keep references one level deep. Strip any sidecar you don't actually use. -->

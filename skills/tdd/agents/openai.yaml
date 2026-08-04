@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD"
+  short_description: "Run a strict test-driven development loop for implementation work."
+  default_prompt: "Use $tdd to help with this task."

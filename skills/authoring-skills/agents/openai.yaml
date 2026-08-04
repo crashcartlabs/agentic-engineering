@@ -1,0 +1,4 @@
+interface:
+  display_name: "Authoring Skills"
+  short_description: "Route a request to create, write, build, author, or improve an Agent Skill to the right workflow."
+  default_prompt: "Use $authoring-skills to help with this task."

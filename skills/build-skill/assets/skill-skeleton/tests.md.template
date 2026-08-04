@@ -1,0 +1,36 @@
+# tests — <skill-name>
+
+At least 3 scenarios captured from **real runs** (Step 2 of /build-skill), not
+invented. Cover a golden path, an edge case, and an error/weird input. Add more as you
+verify them. Keep the `Last verified` line current so staleness is visible.
+
+Mark each scenario **live-verified** only if *its own Input fixture was actually run and
+its Verify clause observed*; otherwise it is **design-verified** (traced by inspection). A
+verdict seen via a different fixture, or a sub-path never exercised, is design-verified —
+not live — for this scenario (see build-skill Step 6).
+
+Last verified: <YYYY-MM-DD>
+
+## Scenario 1 — Golden: <one-line label>
+
+**Input:** <the actual input you ran it on>
+
+**Expected output:** <the actual output shape you got — concrete, checkable>
+
+**Verify:** <how you confirm the run was correct>
+
+## Scenario 2 — Edge: <one-line label>
+
+**Input:** <...>
+
+**Expected output:** <...>
+
+**Verify:** <...>
+
+## Scenario 3 — Error / weird: <one-line label>
+
+**Input:** <empty / malformed / oversized — the case that breaks naive skills>
+
+**Expected output:** <how the skill should degrade or refuse>
+
+**Verify:** <...>

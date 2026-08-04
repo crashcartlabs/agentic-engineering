@@ -1,0 +1,7 @@
+interface:
+  display_name: "cmux"
+  short_description: "Drive cmux (the terminal-multiplexer / agent-fleet CLI) from natural language — open, inspect, prompt, read, and tear down cmux workspaces…"
+  default_prompt: "Use $cmux to help with this task."
+
+policy:
+  allow_implicit_invocation: false
